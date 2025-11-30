@@ -88,6 +88,7 @@ impl App {
         }
     }
 
+    //MOCK:
     fn on_tick(&mut self) {
         self.packet_count += 1;
         if self.packet_count % 10 == 0 {

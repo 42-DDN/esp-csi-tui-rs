@@ -25,7 +25,15 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
             } else {
                 app.theme.text_normal
             };
-            ListItem::new(format!(" {} ", label)).style(style)
+
+            // Display current theme next to the "Change Theme" option
+            let display_label = if i == 0 {
+                format!(" {} ({:?}) ", label, app.theme.variant)
+            } else {
+                format!(" {} ", label)
+            };
+
+            ListItem::new(display_label).style(style)
         })
         .collect();
 
