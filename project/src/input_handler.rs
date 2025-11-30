@@ -21,6 +21,12 @@ pub fn handle_event(app: &mut App) -> io::Result<()> {
                             // Capture current theme variant before saving
                             app.tiling.theme_variant = Some(app.theme.variant);
 
+                            // FORCE is_default to false.
+                            // When saving a specific template (Save As), it should never implicitly
+                            // be the default just because the previous one was.
+                            // The user must explicitly set it as default in the Load menu.
+                            app.tiling.is_default = false;
+
                             let _ = config_manager::save_template(&app.input_buffer, &app.tiling);
                             app.show_save_input = false;
                             app.input_buffer.clear();
@@ -190,7 +196,7 @@ pub fn handle_event(app: &mut App) -> io::Result<()> {
                 }
             }
         },
-        
+
         Event::Mouse(MouseEvent { kind: MouseEventKind::Down(MouseButton::Left), column, row, .. }) => {
             let regions = app.pane_regions.borrow();
             for (id, rect) in regions.iter() {
