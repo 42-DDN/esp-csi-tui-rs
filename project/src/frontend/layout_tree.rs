@@ -18,7 +18,7 @@ pub enum ViewType {
 impl ViewType {
     pub fn as_str(&self) -> &str {
         match self {
-            ViewType::Empty => "Empty Pane (Press Enter to Select)",
+            ViewType::Empty => "Empty Pane",
             ViewType::Dashboard => "Dashboard Stats",
             ViewType::Polar => "Polar Scatter",
             ViewType::Isometric => "3D Isometric",
@@ -55,10 +55,10 @@ pub struct TilingManager {
 impl TilingManager {
     pub fn new() -> Self {
         Self {
-            // Start with one Dashboard pane (better default than empty)
-            root: LayoutNode::Pane { id: 0, view: ViewType::Dashboard },
-            focused_pane_id: 0,
-            next_id: 1,
+            // Start with one Empty pane, ID 1
+            root: LayoutNode::Pane { id: 1, view: ViewType::Empty },
+            focused_pane_id: 1,
+            next_id: 2,
         }
     }
 
@@ -79,8 +79,8 @@ impl TilingManager {
                     let new_id = self.next_id;
                     self.next_id += 1;
 
-                    // INHERIT VIEW: New pane gets the current view
-                    let new_pane = LayoutNode::Pane { id: new_id, view };
+                    // NEW PANE IS ALWAYS EMPTY
+                    let new_pane = LayoutNode::Pane { id: new_id, view: ViewType::Empty };
                     let old_pane = LayoutNode::Pane { id, view };
 
                     // Switch focus to the new pane
@@ -184,7 +184,7 @@ impl TilingManager {
         let max_id = self.next_id;
 
         for _ in 0..max_id {
-            if check_id >= max_id { check_id = 0; }
+            if check_id >= max_id { check_id = 1; } // Wrap back to 1
             if self.node_exists(check_id, &self.root) {
                 self.focused_pane_id = check_id;
                 return;

@@ -7,7 +7,6 @@ use crate::App;
 use crate::layout_tree::{LayoutNode, ViewType};
 use crate::frontend::views::*;
 use crate::frontend::overlays::*;
-use crate::frontend::responsive::{get_density, LayoutDensity}; // <--- Import
 
 pub fn ui(f: &mut Frame, app: &App) {
     // 0. Reset Interaction Cache
@@ -51,20 +50,10 @@ fn draw_tree(f: &mut Frame, app: &App, node: &LayoutNode, area: Rect) {
 
             let is_focused = *id == app.tiling.focused_pane_id;
 
-            // --- RESPONSIVE CHECK ---
-            let density = get_density(area);
-
-            // If TINY, the Router handles it globally (Generic "Too Small" UI)
-            if density == LayoutDensity::Tiny {
-                draw_tiny_fallback(f, app, area, is_focused, *id);
-                return;
-            }
-
-            // If Compact or Normal, pass that info to the View
-            // (Views now accept the `density` enum)
+            // Dispatch to View
             match view {
-                ViewType::Dashboard => stats::draw(f, app, area, is_focused, *id, density),
-                // ViewType::Polar => polar::draw(f, app, area, is_focused, *id, density),
+                ViewType::Dashboard => stats::draw(f, app, area, is_focused, *id),
+                // ViewType::Polar => polar::draw(f, app, area, is_focused, *id),
                 _ => draw_empty(f, app, area, is_focused, view, *id),
             }
         }
@@ -87,32 +76,17 @@ fn draw_tree(f: &mut Frame, app: &App, node: &LayoutNode, area: Rect) {
     }
 }
 
-// Global "Too Small" Renderer
-fn draw_tiny_fallback(f: &mut Frame, app: &App, area: Rect, is_focused: bool, id: usize) {
-    let border_style = if is_focused { app.theme.focused_border } else { app.theme.normal_border };
-
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(border_style)
-        .style(app.theme.root);
-
-    // Just render the ID
-    let text = Paragraph::new(format!("#{}", id))
-        .block(block)
-        .alignment(Alignment::Center);
-
-    f.render_widget(text, area);
-}
-
+// Standard Empty Pane
 fn draw_empty(f: &mut Frame, app: &App, area: Rect, is_focused: bool, view_type: &ViewType, id: usize) {
     let border_style = if is_focused { app.theme.focused_border } else { app.theme.normal_border };
+
     let block = Block::default()
         .title(format!(" #{} Empty ", id))
         .borders(Borders::ALL)
         .border_style(border_style)
         .style(app.theme.root);
 
-    let text = Paragraph::new(format!("{}\n[Enter]", view_type.as_str()))
+    let text = Paragraph::new(format!("{}\n\n[Enter]", view_type.as_str()))
         .block(block)
         .style(app.theme.text_normal)
         .alignment(Alignment::Center);

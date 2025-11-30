@@ -5,7 +5,6 @@
 pub mod layout_tree;
 pub mod theme;
 pub mod view_router;
-pub mod responsive; // <--- Added this
 
 // 2. Register sub-directories
 pub mod views;
