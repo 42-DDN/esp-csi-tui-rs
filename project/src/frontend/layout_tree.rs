@@ -18,7 +18,7 @@ pub enum ViewType {
 impl ViewType {
     pub fn as_str(&self) -> &str {
         match self {
-            ViewType::Empty => "Empty Pane (Press Enter to Select)",
+            ViewType::Empty => "Empty Pane",
             ViewType::Dashboard => "Dashboard Stats",
             ViewType::Polar => "Polar Scatter",
             ViewType::Isometric => "3D Isometric",

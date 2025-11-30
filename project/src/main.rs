@@ -18,7 +18,7 @@ pub use frontend::layout_tree;
 pub use frontend::theme;
 pub use frontend::view_router;
 
-// 3. Re-export Views (directly from the views module now)
+// 3. Re-export Views
 pub use frontend::views::stats;
 // When you implement the other files, uncomment these:
 pub use frontend::views::polar;
@@ -30,9 +30,10 @@ pub use frontend::views::camera;
 // 4. Re-export Overlays
 pub use frontend::overlays::help;
 pub use frontend::overlays::options;
+pub use frontend::overlays::quit; // <--- Re-export quit overlay
 
 // --- Imports ---
-use layout_tree::{TilingManager};
+use layout_tree::TilingManager;
 use theme::{Theme, ThemeType};
 
 // --- App State ---
@@ -43,6 +44,7 @@ pub struct App {
     pub sidebar_index: usize,
     pub show_help: bool,
     pub show_options: bool,
+    pub show_quit_popup: bool, // <--- New State Field
     pub should_quit: bool,
 
     // Data State (Mock)
@@ -59,6 +61,7 @@ impl App {
             sidebar_index: 0,
             show_help: false,
             show_options: false,
+            show_quit_popup: false, // <--- Initialize
             should_quit: false,
             packet_count: 0,
             last_rssi: -85,

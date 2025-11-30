@@ -4,7 +4,7 @@
 use ratatui::{prelude::*, widgets::*};
 use crate::App;
 
-pub fn draw(f: &mut Frame, app: &App, area: Rect) {
+pub fn draw(f: &mut Frame, _app: &App, area: Rect) {
     let area = crate::frontend::overlays::help::centered_rect(40, 20, area);
 
     // Clear background so lines don't bleed through
@@ -20,6 +20,6 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
         .block(block)
         .alignment(Alignment::Center)
         .style(Style::default().fg(Color::White).add_modifier(Modifier::BOLD));
-        
+
     f.render_widget(text, area);
 }

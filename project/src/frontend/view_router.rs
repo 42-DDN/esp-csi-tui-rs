@@ -2,9 +2,10 @@
 // --- Purpose: Recursively renders the UI based on the Layout Tree structure ---
 
 use ratatui::prelude::*;
-use ratatui::widgets::*;
+use ratatui::widgets::*; // <--- Added this to import ListItem, List, Block, etc.
 use crate::App;
 use crate::layout_tree::{LayoutNode, ViewType};
+// Replace the old expo imports with the new module structure
 use crate::frontend::views::*;
 use crate::frontend::overlays::*;
 
@@ -30,6 +31,9 @@ pub fn ui(f: &mut Frame, app: &App) {
     }
     if app.show_options {
         options::draw(f, app, f.area());
+    }
+    if app.show_quit_popup {
+        quit::draw(f, app, f.area());
     }
 }
 
