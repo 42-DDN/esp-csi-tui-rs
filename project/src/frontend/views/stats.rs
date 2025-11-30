@@ -16,20 +16,23 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect, is_focused: bool, id: usize) {
     let inner_area = block.inner(area);
     f.render_widget(block, area);
 
-    // Vertical Stack: 3 Gauges
+    // Centered Vertical Layout
+    // We use Min(0) for top/bottom to act as flexible spacers that share remaining height equally
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
+            Constraint::Min(0),    // Top Spacer (Flexible)
             Constraint::Length(3), // PPS Meter
+            Constraint::Length(1), // Gap
             Constraint::Length(3), // SNR Meter
+            Constraint::Length(1), // Gap
             Constraint::Length(3), // RSSI Gauge
-            Constraint::Min(0),    // Spacing
+            Constraint::Min(0),    // Bottom Spacer (Flexible)
         ])
         .split(inner_area);
 
     // --- 1. Packets Per Second (PPS) Meter ---
-    // MOCK: Simulating PPS variation based on packet_count for visualization
-    let mock_pps = (app.packet_count % 50) * 12 + 100; // Fluctuates between 100-700
+    let mock_pps = (app.packet_count % 50) * 12 + 100;
     let pps_percent = (mock_pps as f64 / 1000.0 * 100.0).clamp(0.0, 100.0) as u16;
 
     let pps_gauge = Gauge::default()
@@ -38,14 +41,13 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect, is_focused: bool, id: usize) {
         .percent(pps_percent)
         .label(format!("{} PPS", mock_pps));
 
-    f.render_widget(pps_gauge, chunks[0]);
+    // Render at index 1 (after top spacer)
+    f.render_widget(pps_gauge, chunks[1]);
 
     // --- 2. Signal to Noise Ratio (SNR) Meter ---
-    // MOCK: Deriving SNR assuming a noise floor of -95dBm
-    // SNR = Signal (RSSI) - Noise (-95)
     let noise_floor = -95;
-    let snr = app.last_rssi - noise_floor; // e.g., -60 - (-95) = 35dB
-    let snr_percent = (snr as f64 / 50.0 * 100.0).clamp(0.0, 100.0) as u16; // Scale 0-50dB to 0-100%
+    let snr = app.last_rssi - noise_floor;
+    let snr_percent = (snr as f64 / 50.0 * 100.0).clamp(0.0, 100.0) as u16;
 
     let snr_gauge = Gauge::default()
         .block(Block::default().title(" Signal-to-Noise Ratio (SNR) ").borders(Borders::BOTTOM))
@@ -53,18 +55,18 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect, is_focused: bool, id: usize) {
         .percent(snr_percent)
         .label(format!("{} dB", snr));
 
-    f.render_widget(snr_gauge, chunks[1]);
+    // Render at index 3 (after gap)
+    f.render_widget(snr_gauge, chunks[3]);
 
     // --- 3. RSSI Gauge ---
-    // RSSI typically ranges from -90 (bad) to -30 (perfect)
-    // We map -100..0 to 0..100%
     let rssi_percent = ((app.last_rssi + 100).max(0) as u16).min(100);
-    
+
     let rssi_gauge = Gauge::default()
         .block(Block::default().title(" RSSI (Signal Strength) ").borders(Borders::BOTTOM))
         .gauge_style(Style::default().fg(app.theme.gauge_color))
         .percent(rssi_percent)
         .label(format!("{} dBm", app.last_rssi));
 
-    f.render_widget(rssi_gauge, chunks[2]);
+    // Render at index 5 (after gap)
+    f.render_widget(rssi_gauge, chunks[5]);
 }
