@@ -53,7 +53,7 @@ pub enum LayoutNode {
         view: ViewType
     },
     Split {
-        direction: SplitDirection, // Use local enum
+        direction: SplitDirection,
         ratio: u16,
         children: Vec<LayoutNode>,
     },
@@ -65,6 +65,10 @@ pub struct TilingManager {
     pub root: LayoutNode,
     pub focused_pane_id: usize,
     pub next_id: usize,
+
+    // NEW FIELD: Default Template Flag
+    #[serde(default)] // Default to false if missing in old JSON
+    pub is_default: bool,
 }
 
 impl TilingManager {
@@ -73,13 +77,13 @@ impl TilingManager {
             root: LayoutNode::Pane { id: 1, view: ViewType::Empty },
             focused_pane_id: 1,
             next_id: 2,
+            is_default: false,
         }
     }
 
     pub fn split(&mut self, direction: Direction) {
         if self.get_pane_count() >= 10 { return; }
 
-        // Convert ratatui direction to local serializable direction
         let local_dir = match direction {
             Direction::Horizontal => SplitDirection::Horizontal,
             Direction::Vertical => SplitDirection::Vertical,

@@ -17,7 +17,6 @@ pub fn handle_event(app: &mut App) -> io::Result<()> {
                 match key.code {
                     KeyCode::Enter => {
                         if !app.input_buffer.is_empty() {
-                            // Save
                             let _ = config_manager::save_template(&app.input_buffer, &app.tiling);
                             app.show_save_input = false;
                             app.input_buffer.clear();
@@ -53,9 +52,21 @@ pub fn handle_event(app: &mut App) -> io::Result<()> {
                             app.load_selector_index = (app.load_selector_index + 1) % app.available_templates.len();
                         }
                     }
+                    // SET DEFAULT
+                    KeyCode::Char('d') => {
+                        if !app.available_templates.is_empty() {
+                            let (filename, _) = &app.available_templates[app.load_selector_index];
+                            let _ = config_manager::set_default_template(filename);
+                            // Refresh list to update '*'
+                            if let Ok(list) = config_manager::list_templates() {
+                                app.available_templates = list;
+                            }
+                        }
+                    }
+                    // LOAD
                     KeyCode::Enter => {
                         if !app.available_templates.is_empty() {
-                            let filename = &app.available_templates[app.load_selector_index];
+                            let (filename, _) = &app.available_templates[app.load_selector_index];
                             if let Ok(new_tiling) = config_manager::load_template(filename) {
                                 app.tiling = new_tiling;
                             }

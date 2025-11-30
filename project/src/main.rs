@@ -12,7 +12,7 @@ use ratatui::prelude::*;
 // 1. Declare modules
 pub mod input_handler;
 pub mod frontend;
-pub mod config_manager; // <--- Register Config Manager
+pub mod config_manager;
 
 pub use frontend::layout_tree;
 pub use frontend::theme;
@@ -41,7 +41,9 @@ pub struct App {
 
     pub show_load_selector: bool,
     pub load_selector_index: usize,
-    pub available_templates: Vec<String>,
+
+    // Changed: Store (Name, IsDefault)
+    pub available_templates: Vec<(String, bool)>,
 
     pub should_quit: bool,
     pub packet_count: u64,
@@ -51,8 +53,15 @@ pub struct App {
 
 impl App {
     fn new() -> Self {
+        // Try to load default template
+        let tiling = if let Some(tm) = config_manager::load_startup_template() {
+            tm
+        } else {
+            TilingManager::new()
+        };
+
         Self {
-            tiling: TilingManager::new(),
+            tiling,
             theme: Theme::new(ThemeType::Dark),
 
             show_help: false,
@@ -76,10 +85,10 @@ impl App {
         }
     }
 
-    fn on_tick(&mut self) {
+    fn on_tick(&mut self) {//temp!!!
         self.packet_count += 1;
         if self.packet_count % 10 == 0 {
-            self.last_rssi = -30 - (rand::random::<i32>().abs() % 60);
+            self.last_rssi = -30 - (rand::random::<i32>().abs() % 60);//temp untill 3ammar gets csi working
         }
     }
 
@@ -96,7 +105,6 @@ impl App {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Init Config Dir
     let _ = config_manager::init();
 
     enable_raw_mode()?;

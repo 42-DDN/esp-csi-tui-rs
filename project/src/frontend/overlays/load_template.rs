@@ -11,23 +11,29 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
     let items: Vec<ListItem> = app.available_templates
         .iter()
         .enumerate()
-        .map(|(i, name)| {
+        .map(|(i, (name, is_default))| {
             let style = if i == app.load_selector_index {
                 Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(Color::White)
             };
 
-            // CHANGED: Strip .json for display
+            // Format name with * for default
             let display_name = name.strip_suffix(".json").unwrap_or(name);
-            ListItem::new(format!(" {} ", display_name)).style(style)
+            let label = if *is_default {
+                format!(" {} (*) ", display_name)
+            } else {
+                format!(" {} ", display_name)
+            };
+
+            ListItem::new(label).style(style)
         })
         .collect();
 
     let title = if app.available_templates.is_empty() {
         " Load Template (None Found) "
     } else {
-        " Load Template "
+        " Load Template ([D] Set Default) "
     };
 
     let block = Block::default()
