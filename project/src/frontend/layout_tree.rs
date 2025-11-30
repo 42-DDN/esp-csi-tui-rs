@@ -1,4 +1,5 @@
-/*### Tiling Manager*/
+// --- File: src/layout_tree.rs ---
+// --- Purpose: Defines the Tiling Window Manager (TWM) logic, pane splitting, and focus management ---
 
 use ratatui::prelude::*;
 
@@ -62,7 +63,7 @@ impl TilingManager {
     }
 
     // SPLIT LOGIC
-    // We need to recursively find the focused node and replace it with a Split
+    // Recursively find the focused node and replace it with a Split
     pub fn split(&mut self, direction: Direction) {
         self.root = self.split_recursive(self.root.clone(), direction);
     }
@@ -79,7 +80,7 @@ impl TilingManager {
                     let new_pane = LayoutNode::Pane { id: new_id, view: ViewType::Empty };
                     let old_pane = LayoutNode::Pane { id, view };
 
-                    // Switch focus to the new pane? (Optional, let's say yes)
+                    // Switch focus to the new pane
                     self.focused_pane_id = new_id;
 
                     return LayoutNode::Split {
@@ -88,9 +89,9 @@ impl TilingManager {
                         children: vec![old_pane, new_pane], // Old one first, new one second
                     };
                 }
-                LayoutNode::Pane { id, view } // Not the focused one
+                LayoutNode::Pane { id, view } // Not the focused one, return as is
             }
-            LayoutNode::Split { direction, ratio, mut children } => {
+            LayoutNode::Split { direction, ratio, children } => {
                 // Keep searching down the tree
                 let new_children: Vec<LayoutNode> = children
                     .into_iter()
@@ -123,10 +124,30 @@ impl TilingManager {
         }
     }
 
-    // NAVIGATION (Simplified for brevity: Cycle through IDs)
+    // NAVIGATION
     pub fn focus_next(&mut self) {
-        // A real implementation needs tree traversal to find the "geometric next"
-        // For hackathon speed, just cycle ID + 1 until we find a valid ID or wrap around.
-        // (Placeholder logic)
+        // Simple sequential focus logic for Hackathon
+        let start_id = self.focused_pane_id;
+        let mut check_id = start_id + 1;
+        let max_id = self.next_id;
+
+        // Loop to find next valid pane ID
+        for _ in 0..max_id {
+            if check_id >= max_id { check_id = 0; }
+            if self.node_exists(check_id, &self.root) {
+                self.focused_pane_id = check_id;
+                return;
+            }
+            check_id += 1;
+        }
+    }
+
+    fn node_exists(&self, target_id: usize, node: &LayoutNode) -> bool {
+        match node {
+            LayoutNode::Pane { id, .. } => *id == target_id,
+            LayoutNode::Split { children, .. } => {
+                children.iter().any(|c| self.node_exists(target_id, c))
+            }
+        }
     }
 }

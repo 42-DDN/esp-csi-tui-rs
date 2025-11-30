@@ -1,3 +1,6 @@
+// --- File: src/theme.rs ---
+// --- Purpose: Defines color palettes (Dark, Light, Nordic, Gruvbox, Catppuccin) and styling logic ---
+
 use ratatui::style::{Color, Modifier, Style};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
