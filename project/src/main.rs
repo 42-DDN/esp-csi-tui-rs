@@ -41,8 +41,6 @@ pub struct App {
 
     pub show_load_selector: bool,
     pub load_selector_index: usize,
-
-    // Changed: Store (Name, IsDefault)
     pub available_templates: Vec<(String, bool)>,
 
     pub should_quit: bool,
@@ -53,16 +51,21 @@ pub struct App {
 
 impl App {
     fn new() -> Self {
-        // Try to load default template
-        let tiling = if let Some(tm) = config_manager::load_startup_template() {
-            tm
+        // Load default template and theme if available
+        let (tiling, theme) = if let Some(tm) = config_manager::load_startup_template() {
+            let loaded_theme = if let Some(variant) = tm.theme_variant {
+                Theme::new(variant)
+            } else {
+                Theme::new(ThemeType::Dark)
+            };
+            (tm, loaded_theme)
         } else {
-            TilingManager::new()
+            (TilingManager::new(), Theme::new(ThemeType::Dark))
         };
 
         Self {
             tiling,
-            theme: Theme::new(ThemeType::Dark),
+            theme,
 
             show_help: false,
             show_quit_popup: false,
@@ -85,10 +88,10 @@ impl App {
         }
     }
 
-    fn on_tick(&mut self) {//temp!!!
+    fn on_tick(&mut self) {
         self.packet_count += 1;
         if self.packet_count % 10 == 0 {
-            self.last_rssi = -30 - (rand::random::<i32>().abs() % 60);//temp untill 3ammar gets csi working
+            self.last_rssi = -30 - (rand::random::<i32>().abs() % 60);
         }
     }
 

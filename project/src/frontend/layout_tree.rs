@@ -1,8 +1,9 @@
-// --- File: src/layout_tree.rs ---
+// --- File: src/frontend/layout_tree.rs ---
 // --- Purpose: Defines the Tiling Window Manager (TWM) logic, pane splitting, and focus management ---
 
 use ratatui::prelude::*;
 use serde::{Serialize, Deserialize};
+use crate::theme::ThemeType;
 
 // Local Direction enum to ensure Serde compatibility
 #[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
@@ -66,9 +67,12 @@ pub struct TilingManager {
     pub focused_pane_id: usize,
     pub next_id: usize,
 
-    // NEW FIELD: Default Template Flag
-    #[serde(default)] // Default to false if missing in old JSON
+    #[serde(default)]
     pub is_default: bool,
+
+    // Store the theme in the template
+    #[serde(default)]
+    pub theme_variant: Option<ThemeType>,
 }
 
 impl TilingManager {
@@ -78,6 +82,7 @@ impl TilingManager {
             focused_pane_id: 1,
             next_id: 2,
             is_default: false,
+            theme_variant: None, // Default to whatever App sets if missing
         }
     }
 

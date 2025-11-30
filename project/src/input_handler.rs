@@ -8,6 +8,7 @@ use crate::App;
 use crate::frontend::overlays::view_selector::AVAILABLE_VIEWS;
 use crate::frontend::overlays::main_menu::MENU_ITEMS;
 use crate::config_manager;
+use crate::theme::Theme; // Import Theme for reconstruction
 
 pub fn handle_event(app: &mut App) -> io::Result<()> {
     match event::read()? {
@@ -17,6 +18,9 @@ pub fn handle_event(app: &mut App) -> io::Result<()> {
                 match key.code {
                     KeyCode::Enter => {
                         if !app.input_buffer.is_empty() {
+                            // Capture current theme variant before saving
+                            app.tiling.theme_variant = Some(app.theme.variant);
+
                             let _ = config_manager::save_template(&app.input_buffer, &app.tiling);
                             app.show_save_input = false;
                             app.input_buffer.clear();
@@ -68,6 +72,10 @@ pub fn handle_event(app: &mut App) -> io::Result<()> {
                         if !app.available_templates.is_empty() {
                             let (filename, _) = &app.available_templates[app.load_selector_index];
                             if let Ok(new_tiling) = config_manager::load_template(filename) {
+                                // Apply Theme if present
+                                if let Some(variant) = new_tiling.theme_variant {
+                                    app.theme = Theme::new(variant);
+                                }
                                 app.tiling = new_tiling;
                             }
                             app.show_load_selector = false;
@@ -182,7 +190,7 @@ pub fn handle_event(app: &mut App) -> io::Result<()> {
                 }
             }
         },
-
+        
         Event::Mouse(MouseEvent { kind: MouseEventKind::Down(MouseButton::Left), column, row, .. }) => {
             let regions = app.pane_regions.borrow();
             for (id, rect) in regions.iter() {

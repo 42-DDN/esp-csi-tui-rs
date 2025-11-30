@@ -16,9 +16,23 @@
             "ratio": 50,
             "children": [
               {
-                "Pane": {
-                  "id": 2,
-                  "view": "Camera"
+                "Split": {
+                  "direction": "Vertical",
+                  "ratio": 50,
+                  "children": [
+                    {
+                      "Pane": {
+                        "id": 2,
+                        "view": "Camera"
+                      }
+                    },
+                    {
+                      "Pane": {
+                        "id": 4,
+                        "view": "Isometric"
+                      }
+                    }
+                  ]
                 }
               },
               {
@@ -29,27 +43,13 @@
                     {
                       "Pane": {
                         "id": 3,
-                        "view": "Polar"
+                        "view": "Phase"
                       }
                     },
                     {
-                      "Split": {
-                        "direction": "Vertical",
-                        "ratio": 50,
-                        "children": [
-                          {
-                            "Pane": {
-                              "id": 4,
-                              "view": "Isometric"
-                            }
-                          },
-                          {
-                            "Pane": {
-                              "id": 5,
-                              "view": "Spectrogram"
-                            }
-                          }
-                        ]
+                      "Pane": {
+                        "id": 5,
+                        "view": "Isometric"
                       }
                     }
                   ]
@@ -61,7 +61,8 @@
       ]
     }
   },
-  "focused_pane_id": 5,
+  "focused_pane_id": 4,
   "next_id": 6,
-  "is_default": true
+  "is_default": true,
+  "theme_variant": "Gruvbox"
 }

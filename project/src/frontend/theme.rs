@@ -1,9 +1,10 @@
-// --- File: src/theme.rs ---
+// --- File: src/frontend/theme.rs ---
 // --- Purpose: Defines color palettes (Dark, Light, Nordic, Gruvbox, Catppuccin) and styling logic ---
 
 use ratatui::style::{Color, Modifier, Style};
+use serde::{Serialize, Deserialize};
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ThemeType {
     Dark,
     Light,
