@@ -124,6 +124,40 @@ impl TilingManager {
         if !self.node_exists(self.focused_pane_id, &self.root) {
             self.focused_pane_id = self.find_first_id(&self.root);
         }
+
+        // 4. Re-index IDs so they remain sequential (1..N)
+        self.reindex_ids();
+    }
+
+    // RE-INDEXING LOGIC (New)
+    fn reindex_ids(&mut self) {
+        let mut counter = 1;
+        let mut new_focus = self.focused_pane_id;
+
+        self.root = self.reindex_recursive(self.root.clone(), &mut counter, &mut new_focus);
+
+        self.focused_pane_id = new_focus;
+        self.next_id = counter;
+    }
+
+    fn reindex_recursive(&self, node: LayoutNode, counter: &mut usize, new_focus: &mut usize) -> LayoutNode {
+        match node {
+            LayoutNode::Pane { id, view } => {
+                let new_id = *counter;
+                *counter += 1;
+
+                // If this node was the focused one (or the one we switched to), update the tracker
+                if id == *new_focus {
+                    *new_focus = new_id;
+                }
+
+                LayoutNode::Pane { id: new_id, view }
+            }
+            LayoutNode::Split { direction, ratio, children } => {
+                let new_children = children.into_iter().map(|c| self.reindex_recursive(c, counter, new_focus)).collect();
+                LayoutNode::Split { direction, ratio, children: new_children }
+            }
+        }
     }
 
     // Returns Option<LayoutNode>. If None, the node is removed.
