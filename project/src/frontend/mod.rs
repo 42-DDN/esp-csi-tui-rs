@@ -5,8 +5,8 @@
 pub mod layout_tree;
 pub mod theme;
 pub mod view_router;
+pub mod responsive; // <--- Added this
 
 // 2. Register sub-directories
-// Rust automatically looks for src/frontend/views/mod.rs
 pub mod views;
 pub mod overlays;

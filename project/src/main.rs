@@ -1,7 +1,7 @@
 // --- File: src/main.rs ---
 // --- Purpose: Entry Point. Configures the module tree to match the file structure. ---
 
-use std::{io, time::Duration};
+use std::{io, time::Duration, cell::RefCell}; // <--- Added RefCell
 use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
@@ -60,6 +60,10 @@ pub struct App {
     // Data State (Mock)
     pub packet_count: u64,
     pub last_rssi: i32,
+
+    // UI Cache (For Mouse Interaction)
+    // Stores (Pane ID, Screen Area)
+    pub pane_regions: RefCell<Vec<(usize, Rect)>>, // <--- New Field
 }
 
 impl App {
@@ -80,6 +84,8 @@ impl App {
             should_quit: false,
             packet_count: 0,
             last_rssi: -85,
+
+            pane_regions: RefCell::new(Vec::new()), // <--- Initialize
         }
     }
 
