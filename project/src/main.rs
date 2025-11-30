@@ -13,24 +13,26 @@ use ratatui::prelude::*;
 pub mod input_handler;
 pub mod frontend;
 
-// 2. Re-export frontend modules for convenience
+// 2. Re-export frontend modules
 pub use frontend::layout_tree;
 pub use frontend::theme;
 pub use frontend::view_router;
 
 // 3. Re-export Views
 pub use frontend::views::stats;
-// When you implement the other files, uncomment these:
-pub use frontend::views::polar;
-pub use frontend::views::isometric;
-pub use frontend::views::spectrogram;
-pub use frontend::views::phase;
-pub use frontend::views::camera;
+// Uncomment as implemented:
+// pub use frontend::views::polar;
+// pub use frontend::views::isometric;
+// pub use frontend::views::spectrogram;
+// pub use frontend::views::phase;
+// pub use frontend::views::camera;
 
 // 4. Re-export Overlays
 pub use frontend::overlays::help;
 pub use frontend::overlays::options;
-pub use frontend::overlays::quit; // <--- Re-export quit overlay
+pub use frontend::overlays::quit;
+pub use frontend::overlays::view_selector;
+pub use frontend::overlays::main_menu;
 
 // --- Imports ---
 use layout_tree::TilingManager;
@@ -40,11 +42,19 @@ use theme::{Theme, ThemeType};
 pub struct App {
     pub tiling: TilingManager,
     pub theme: Theme,
-    pub sidebar_active: bool,
-    pub sidebar_index: usize,
+
+    // -- Menus & Popups --
     pub show_help: bool,
-    pub show_options: bool,
-    pub show_quit_popup: bool, // <--- New State Field
+    pub show_quit_popup: bool,
+
+    // View Selector Logic
+    pub show_view_selector: bool,
+    pub view_selector_index: usize,
+
+    // Main Menu Logic
+    pub show_main_menu: bool,
+    pub main_menu_index: usize,
+
     pub should_quit: bool,
 
     // Data State (Mock)
@@ -57,11 +67,16 @@ impl App {
         Self {
             tiling: TilingManager::new(),
             theme: Theme::new(ThemeType::Dark),
-            sidebar_active: false,
-            sidebar_index: 0,
+
             show_help: false,
-            show_options: false,
-            show_quit_popup: false, // <--- Initialize
+            show_quit_popup: false,
+
+            show_view_selector: false,
+            view_selector_index: 0,
+
+            show_main_menu: false,
+            main_menu_index: 0,
+
             should_quit: false,
             packet_count: 0,
             last_rssi: -85,

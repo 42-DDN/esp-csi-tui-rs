@@ -2,39 +2,50 @@
 // --- Purpose: Recursively renders the UI based on the Layout Tree structure ---
 
 use ratatui::prelude::*;
-use ratatui::widgets::*; // <--- Added this to import ListItem, List, Block, etc.
+use ratatui::widgets::*;
 use crate::App;
 use crate::layout_tree::{LayoutNode, ViewType};
-// Replace the old expo imports with the new module structure
 use crate::frontend::views::*;
 use crate::frontend::overlays::*;
 
 pub fn ui(f: &mut Frame, app: &App) {
-    // 1. Root Layout: Sidebar vs Tiling Area
+    // 1. Layout: Header (Top) vs Main Tiling Area
     let chunks = Layout::default()
-        .direction(Direction::Horizontal)
+        .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(25), // Sidebar width
-            Constraint::Min(0),     // Tiling Area
+            Constraint::Length(1), // Header (Hotkeys)
+            Constraint::Min(0),    // Tiling Area
         ])
         .split(f.area());
 
-    // 2. Draw Sidebar
-    draw_sidebar(f, app, chunks[0]);
+    // 2. Draw Header
+    draw_header(f, app, chunks[0]);
 
-    // 3. Recursive Draw of Tiling Area
+    // 3. Draw Main Tiling Area
     draw_tree(f, app, &app.tiling.root, chunks[1]);
 
-    // 4. Overlays
+    // 4. Draw Overlays (in z-order)
     if app.show_help {
         help::draw(f, app, f.area());
     }
-    if app.show_options {
-        options::draw(f, app, f.area());
+    if app.show_view_selector {
+        view_selector::draw(f, app, f.area());
+    }
+    if app.show_main_menu {
+        main_menu::draw(f, app, f.area());
     }
     if app.show_quit_popup {
         quit::draw(f, app, f.area());
     }
+}
+
+// HEADER
+fn draw_header(f: &mut Frame, _app: &App, area: Rect) {
+    let hotkeys = " [Shift+Arrow] Split | [Tab] Focus | [Enter] Select View | [M] Menu | [Q] Quit ";
+    let header = Paragraph::new(hotkeys)
+        .style(Style::default().bg(Color::DarkGray).fg(Color::White).add_modifier(Modifier::BOLD))
+        .alignment(Alignment::Center);
+    f.render_widget(header, area);
 }
 
 // THE RECURSIVE RENDERER
@@ -68,39 +79,11 @@ fn draw_tree(f: &mut Frame, app: &App, node: &LayoutNode, area: Rect) {
     }
 }
 
-fn draw_sidebar(f: &mut Frame, app: &App, area: Rect) {
-    let items: Vec<ListItem> = vec![
-        "Dashboard", "Polar Scatter", "3D Isometric", "Spectrogram", "Phase Plot", "Camera Feed"
-    ]
-    .iter()
-    .enumerate()
-    .map(|(i, &t)| {
-        let style = if app.sidebar_active && i == app.sidebar_index {
-            app.theme.sidebar_selected
-        } else {
-            app.theme.sidebar_normal
-        };
-        ListItem::new(t).style(style)
-    })
-    .collect();
-
-    let border_style = if app.sidebar_active {
-        app.theme.focused_border
-    } else {
-        app.theme.normal_border
-    };
-
-    let list = List::new(items)
-        .block(Block::default().title(" Menu ").borders(Borders::ALL).border_style(border_style).style(app.theme.root));
-
-    f.render_widget(list, area);
-}
-
 // Empty Pane
 fn draw_empty(f: &mut Frame, app: &App, area: Rect, is_focused: bool, view_type: &ViewType) {
     let border_style = if is_focused { app.theme.focused_border } else { app.theme.normal_border };
     let block = Block::default()
-        .title(" Pane ")
+        .title(" Empty Pane ")
         .borders(Borders::ALL)
         .border_style(border_style)
         .style(app.theme.root);

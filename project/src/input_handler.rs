@@ -5,17 +5,68 @@ use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use std::io;
 use ratatui::layout::Direction;
 use crate::App;
-use crate::layout_tree::ViewType;
+use crate::frontend::overlays::view_selector::AVAILABLE_VIEWS;
+use crate::frontend::overlays::main_menu::MENU_ITEMS;
 
-/// Handles a single event from crossterm.
 pub fn handle_event(app: &mut App) -> io::Result<()> {
     if let Event::Key(key) = event::read()? {
 
-        // --- PRIORITY: Handle Popups First ---
+        // --- PRIORITY 1: Quit Popup ---
         if app.show_quit_popup {
             match key.code {
                 KeyCode::Char('y') | KeyCode::Enter => app.should_quit = true,
                 KeyCode::Char('n') | KeyCode::Char('q') | KeyCode::Esc => app.show_quit_popup = false,
+                _ => {}
+            }
+            return Ok(());
+        }
+
+        // --- PRIORITY 2: View Selector Popup ---
+        if app.show_view_selector {
+            match key.code {
+                KeyCode::Up => {
+                    if app.view_selector_index > 0 {
+                        app.view_selector_index -= 1;
+                    } else {
+                        app.view_selector_index = AVAILABLE_VIEWS.len() - 1;
+                    }
+                }
+                KeyCode::Down => {
+                    app.view_selector_index = (app.view_selector_index + 1) % AVAILABLE_VIEWS.len();
+                }
+                KeyCode::Enter => {
+                    let (selected_view, _) = AVAILABLE_VIEWS[app.view_selector_index];
+                    app.tiling.set_current_view(selected_view);
+                    app.show_view_selector = false;
+                }
+                KeyCode::Esc | KeyCode::Char('q') => app.show_view_selector = false,
+                _ => {}
+            }
+            return Ok(());
+        }
+
+        // --- PRIORITY 3: Main Menu Popup ---
+        if app.show_main_menu {
+            match key.code {
+                KeyCode::Up => {
+                    if app.main_menu_index > 0 {
+                        app.main_menu_index -= 1;
+                    } else {
+                        app.main_menu_index = MENU_ITEMS.len() - 1;
+                    }
+                }
+                KeyCode::Down => {
+                    app.main_menu_index = (app.main_menu_index + 1) % MENU_ITEMS.len();
+                }
+                KeyCode::Enter => {
+                    match app.main_menu_index {
+                        0 => app.next_theme(), // Change Theme
+                        1 => {}, // Export (TODO)
+                        2 => app.show_main_menu = false, // Close
+                        _ => {}
+                    }
+                }
+                KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('m') => app.show_main_menu = false,
                 _ => {}
             }
             return Ok(());
@@ -26,63 +77,31 @@ pub fn handle_event(app: &mut App) -> io::Result<()> {
         // 1. Tiling Management (Shift + Arrows)
         if key.modifiers.contains(KeyModifiers::SHIFT) {
             match key.code {
-                KeyCode::Left | KeyCode::Right => {
-                    app.tiling.split(Direction::Horizontal);
-                }
-                KeyCode::Up | KeyCode::Down => {
-                    app.tiling.split(Direction::Vertical);
-                }
+                KeyCode::Left | KeyCode::Right => app.tiling.split(Direction::Horizontal),
+                KeyCode::Up | KeyCode::Down => app.tiling.split(Direction::Vertical),
                 _ => {}
             }
         }
-        // 2. Standard Navigation & Shortcuts
+        // 2. Global Navigation & Actions
         else {
             match key.code {
-                // Global Shortcuts
-                KeyCode::Char('q') => app.show_quit_popup = true, // Trigger Popup
+                KeyCode::Char('q') => app.show_quit_popup = true,
                 KeyCode::Char('h') => app.show_help = !app.show_help,
-                KeyCode::Char('o') => app.show_options = !app.show_options,
-                KeyCode::Char('t') => app.next_theme(),
+                KeyCode::Char('m') => app.show_main_menu = !app.show_main_menu,
+                KeyCode::Char('t') => app.next_theme(), // Quick toggle
 
                 // Focus Navigation
                 KeyCode::Tab => app.tiling.focus_next(),
 
-                // Sidebar Navigation
-                KeyCode::Down => {
-                    if app.sidebar_active {
-                        app.sidebar_index = (app.sidebar_index + 1) % 6; // 6 menu items
-                    }
+                // Open View Selector for current pane
+                KeyCode::Enter => {
+                    app.show_view_selector = true;
+                    app.view_selector_index = 0; // Reset selection to top
                 }
-                KeyCode::Up => {
-                    if app.sidebar_active && app.sidebar_index > 0 {
-                        app.sidebar_index -= 1;
-                    }
-                }
-
-                // Selection Logic (Enter)
-                KeyCode::Enter => handle_enter_key(app),
 
                 _ => {}
             }
         }
     }
     Ok(())
-}
-
-fn handle_enter_key(app: &mut App) {
-    if app.sidebar_active {
-        let view = match app.sidebar_index {
-            0 => ViewType::Dashboard,
-            1 => ViewType::Polar,
-            2 => ViewType::Isometric,
-            3 => ViewType::Spectrogram,
-            4 => ViewType::Phase,
-            5 => ViewType::Camera,
-            _ => ViewType::Empty,
-        };
-        app.tiling.set_current_view(view);
-        app.sidebar_active = false;
-    } else {
-        app.sidebar_active = true;
-    }
 }
