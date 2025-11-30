@@ -13,12 +13,11 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
         .enumerate()
         .map(|(i, (name, is_default))| {
             let style = if i == app.load_selector_index {
-                Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD)
+                app.theme.sidebar_selected
             } else {
-                Style::default().fg(Color::White)
+                app.theme.text_normal
             };
 
-            // Format name with * for default
             let display_name = name.strip_suffix(".json").unwrap_or(name);
             let label = if *is_default {
                 format!(" {} (*) ", display_name)
@@ -39,11 +38,11 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(app.theme.focused_border)
+        .style(app.theme.root);
 
     let list = List::new(items)
-        .block(block)
-        .highlight_style(Style::default().add_modifier(Modifier::BOLD));
+        .block(block);
 
     f.render_widget(list, area);
 }

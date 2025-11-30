@@ -21,9 +21,9 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
         .enumerate()
         .map(|(i, &label)| {
             let style = if i == app.main_menu_index {
-                Style::default().fg(Color::Black).bg(Color::Yellow).add_modifier(Modifier::BOLD)
+                app.theme.sidebar_selected
             } else {
-                Style::default().fg(Color::White)
+                app.theme.text_normal
             };
             ListItem::new(format!(" {} ", label)).style(style)
         })
@@ -32,7 +32,8 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
     let block = Block::default()
         .title(" Main Menu ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Yellow));
+        .border_style(app.theme.focused_border)
+        .style(app.theme.root);
 
     let list = List::new(items).block(block);
 

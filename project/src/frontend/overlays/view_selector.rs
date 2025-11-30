@@ -15,21 +15,18 @@ pub const AVAILABLE_VIEWS: [(ViewType, &str); 6] = [
 ];
 
 pub fn draw(f: &mut Frame, app: &App, area: Rect) {
-    // Reuse the centered_rect helper from help.rs
     let area = crate::frontend::overlays::help::centered_rect(40, 40, area);
-
-    // Clear background so we don't see content behind
     f.render_widget(Clear, area);
 
     let items: Vec<ListItem> = AVAILABLE_VIEWS
         .iter()
         .enumerate()
         .map(|(i, (_, label))| {
+            // Dynamic selection style based on theme
             let style = if i == app.view_selector_index {
-                // Highlight selection
-                Style::default().fg(Color::Black).bg(Color::Green).add_modifier(Modifier::BOLD)
+                app.theme.sidebar_selected
             } else {
-                Style::default().fg(Color::White)
+                app.theme.text_normal
             };
             ListItem::new(format!(" {} ", label)).style(style)
         })
@@ -38,11 +35,11 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
     let block = Block::default()
         .title(" Select View ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(app.theme.focused_border)
+        .style(app.theme.root);
 
     let list = List::new(items)
-        .block(block)
-        .highlight_style(Style::default().add_modifier(Modifier::BOLD));
+        .block(block);
 
     f.render_widget(list, area);
 }

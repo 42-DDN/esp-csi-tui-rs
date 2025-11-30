@@ -1,22 +1,24 @@
-// --- File: src/options.rs ---
+// --- File: src/frontend/overlays/options.rs ---
 // --- Purpose: Options popup overlay for export and settings ---
 
 use ratatui::{prelude::*, widgets::*};
 use crate::App;
 
-pub fn draw(f: &mut Frame, _app: &App, area: Rect) {
-    let area = crate::help::centered_rect(50, 20, area);
+pub fn draw(f: &mut Frame, app: &App, area: Rect) {
+    let area = crate::frontend::overlays::help::centered_rect(50, 20, area);
 
     f.render_widget(Clear, area);
 
     let block = Block::default()
         .title(" Options ")
         .borders(Borders::ALL)
-        .style(Style::default().bg(Color::DarkGray));
+        .border_style(app.theme.focused_border)
+        .style(app.theme.root);
 
     let text = Paragraph::new("Export Data [E] \nTheme [T] \nClose [O]")
         .block(block)
-        .alignment(Alignment::Center);
+        .alignment(Alignment::Center)
+        .style(app.theme.text_normal);
 
     f.render_widget(text, area);
 }
