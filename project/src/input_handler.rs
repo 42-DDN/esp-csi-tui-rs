@@ -7,11 +7,68 @@ use ratatui::layout::Direction;
 use crate::App;
 use crate::frontend::overlays::view_selector::AVAILABLE_VIEWS;
 use crate::frontend::overlays::main_menu::MENU_ITEMS;
+use crate::config_manager;
 
 pub fn handle_event(app: &mut App) -> io::Result<()> {
     match event::read()? {
         Event::Key(key) => {
-            // --- PRIORITY 1: Quit Popup ---
+            // --- PRIORITY 0: Save Template Input ---
+            if app.show_save_input {
+                match key.code {
+                    KeyCode::Enter => {
+                        if !app.input_buffer.is_empty() {
+                            // Save
+                            let _ = config_manager::save_template(&app.input_buffer, &app.tiling);
+                            app.show_save_input = false;
+                            app.input_buffer.clear();
+                        }
+                    }
+                    KeyCode::Esc => {
+                        app.show_save_input = false;
+                        app.input_buffer.clear();
+                    }
+                    KeyCode::Backspace => {
+                        app.input_buffer.pop();
+                    }
+                    KeyCode::Char(c) => {
+                        app.input_buffer.push(c);
+                    }
+                    _ => {}
+                }
+                return Ok(());
+            }
+
+            // --- PRIORITY 1: Load Template Selector ---
+            if app.show_load_selector {
+                 match key.code {
+                    KeyCode::Up => {
+                        if app.load_selector_index > 0 {
+                            app.load_selector_index -= 1;
+                        } else if !app.available_templates.is_empty() {
+                            app.load_selector_index = app.available_templates.len() - 1;
+                        }
+                    }
+                    KeyCode::Down => {
+                        if !app.available_templates.is_empty() {
+                            app.load_selector_index = (app.load_selector_index + 1) % app.available_templates.len();
+                        }
+                    }
+                    KeyCode::Enter => {
+                        if !app.available_templates.is_empty() {
+                            let filename = &app.available_templates[app.load_selector_index];
+                            if let Ok(new_tiling) = config_manager::load_template(filename) {
+                                app.tiling = new_tiling;
+                            }
+                            app.show_load_selector = false;
+                        }
+                    }
+                    KeyCode::Esc | KeyCode::Char('q') => app.show_load_selector = false,
+                    _ => {}
+                }
+                return Ok(());
+            }
+
+            // --- PRIORITY 2: Quit Popup ---
             if app.show_quit_popup {
                 match key.code {
                     KeyCode::Char('y') | KeyCode::Enter => app.should_quit = true,
@@ -21,7 +78,7 @@ pub fn handle_event(app: &mut App) -> io::Result<()> {
                 return Ok(());
             }
 
-            // --- PRIORITY 2: View Selector Popup ---
+            // --- PRIORITY 3: View Selector Popup ---
             if app.show_view_selector {
                 match key.code {
                     KeyCode::Up => {
@@ -45,7 +102,7 @@ pub fn handle_event(app: &mut App) -> io::Result<()> {
                 return Ok(());
             }
 
-            // --- PRIORITY 3: Main Menu Popup ---
+            // --- PRIORITY 4: Main Menu Popup ---
             if app.show_main_menu {
                 match key.code {
                     KeyCode::Up => {
@@ -61,8 +118,22 @@ pub fn handle_event(app: &mut App) -> io::Result<()> {
                     KeyCode::Enter => {
                         match app.main_menu_index {
                             0 => app.next_theme(),
-                            1 => {},
-                            2 => app.show_main_menu = false,
+                            1 => { // Save Template
+                                app.show_main_menu = false;
+                                app.show_save_input = true;
+                                app.input_buffer.clear();
+                            },
+                            2 => { // Load Template
+                                app.show_main_menu = false;
+                                // Refresh list
+                                if let Ok(list) = config_manager::list_templates() {
+                                    app.available_templates = list;
+                                }
+                                app.load_selector_index = 0;
+                                app.show_load_selector = true;
+                            },
+                            3 => {}, // Export
+                            4 => app.show_main_menu = false,
                             _ => {}
                         }
                     }
@@ -73,52 +144,34 @@ pub fn handle_event(app: &mut App) -> io::Result<()> {
             }
 
             // --- Standard Inputs ---
-
-            // 1. Tiling Management (Shift + Arrows)
             if key.modifiers.contains(KeyModifiers::SHIFT) {
                 match key.code {
                     KeyCode::Left | KeyCode::Right => app.tiling.split(Direction::Horizontal),
                     KeyCode::Up | KeyCode::Down => app.tiling.split(Direction::Vertical),
                     _ => {}
                 }
-            }
-            // 2. Global Navigation & Actions
-            else {
+            } else {
                 match key.code {
                     KeyCode::Char('q') => app.show_quit_popup = true,
                     KeyCode::Char('h') => app.show_help = !app.show_help,
                     KeyCode::Char('m') => app.show_main_menu = !app.show_main_menu,
                     KeyCode::Char('t') => app.next_theme(),
-
-                    // Focus Navigation
                     KeyCode::Tab => app.tiling.focus_next(),
-
-                    // Close Pane
                     KeyCode::Delete => app.tiling.close_focused_pane(),
-
-                    // Numeric Selection (0-9)
                     KeyCode::Char(c) if c.is_digit(10) => {
-                        if let Some(digit) = c.to_digit(10) {
-                            let id = digit as usize;
-                            let exists = app.pane_regions.borrow().iter().any(|(pid, _)| *pid == id);
-                            if exists {
-                                app.tiling.focused_pane_id = id;
-                            }
-                        }
+                        let id = if c == '0' { 10 } else { c.to_digit(10).unwrap() as usize };
+                        let exists = app.pane_regions.borrow().iter().any(|(pid, _)| *pid == id);
+                        if exists { app.tiling.focused_pane_id = id; }
                     }
-
-                    // Open View Selector
                     KeyCode::Enter => {
                         app.show_view_selector = true;
                         app.view_selector_index = 0;
                     }
-
                     _ => {}
                 }
             }
         },
 
-        // --- MOUSE INPUT ---
         Event::Mouse(MouseEvent { kind: MouseEventKind::Down(MouseButton::Left), column, row, .. }) => {
             let regions = app.pane_regions.borrow();
             for (id, rect) in regions.iter() {

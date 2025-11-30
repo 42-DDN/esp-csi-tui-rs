@@ -4,9 +4,11 @@
 use ratatui::{prelude::*, widgets::*};
 use crate::App;
 
-pub const MENU_ITEMS: [&str; 3] = [
+pub const MENU_ITEMS: [&str; 5] = [
     "Change Theme",
-    "Export Data (RRD/CSV) [TODO]",
+    "Save Template",
+    "Load Template",
+    "Export Data [TODO]",
     "Close Menu"
 ];
 

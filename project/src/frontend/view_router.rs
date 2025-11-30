@@ -31,6 +31,8 @@ pub fn ui(f: &mut Frame, app: &App) {
     if app.show_help { help::draw(f, app, f.area()); }
     if app.show_view_selector { view_selector::draw(f, app, f.area()); }
     if app.show_main_menu { main_menu::draw(f, app, f.area()); }
+    if app.show_save_input { save_template::draw(f, app, f.area()); }
+    if app.show_load_selector { load_template::draw(f, app, f.area()); }
     if app.show_quit_popup { quit::draw(f, app, f.area()); }
 }
 
@@ -62,8 +64,9 @@ fn draw_tree(f: &mut Frame, app: &App, node: &LayoutNode, area: Rect) {
                 Constraint::Percentage(*ratio),
                 Constraint::Percentage(100 - *ratio),
             ];
+            // Convert local direction to Ratatui direction
             let chunks = Layout::default()
-                .direction(*direction)
+                .direction(direction.to_ratatui())
                 .constraints(constraints)
                 .split(area);
 
