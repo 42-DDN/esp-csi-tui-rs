@@ -2,10 +2,11 @@
 // --- Purpose: Recursively renders the UI based on the Layout Tree structure ---
 
 use ratatui::prelude::*;
+use ratatui::widgets::*;
 use crate::App;
 use crate::layout_tree::{LayoutNode, ViewType};
-use crate::view_expo::*;
-use crate::overlay_expo::*;
+use crate::frontend::views::*;
+use crate::frontend::overlays::*;
 
 pub fn ui(f: &mut Frame, app: &App) {
     // 1. Root Layout: Sidebar vs Tiling Area
@@ -15,7 +16,7 @@ pub fn ui(f: &mut Frame, app: &App) {
             Constraint::Length(25), // Sidebar width
             Constraint::Min(0),     // Tiling Area
         ])
-        .split(f.size());
+        .split(f.area());
 
     // 2. Draw Sidebar
     draw_sidebar(f, app, chunks[0]);
@@ -25,10 +26,10 @@ pub fn ui(f: &mut Frame, app: &App) {
 
     // 4. Overlays
     if app.show_help {
-        help::draw(f, app, f.size());
+        help::draw(f, app, f.area());
     }
     if app.show_options {
-        options::draw(f, app, f.size());
+        options::draw(f, app, f.area());
     }
 }
 

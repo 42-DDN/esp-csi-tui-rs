@@ -1,5 +1,5 @@
 // --- File: src/main.rs ---
-// --- Purpose: Application Entry Point, State Management, and Main Run Loop ---
+// --- Purpose: Entry Point. Configures the module tree to match the file structure. ---
 
 use std::{io, time::Duration};
 use crossterm::{
@@ -9,20 +9,30 @@ use crossterm::{
 };
 use ratatui::prelude::*;
 
-// --- Modules ---
-pub mod layout_tree;
-pub mod theme;
-pub mod view_router;
-pub mod view_expo;
-pub mod overlay_expo;
+// 1. Declare the top-level modules
 pub mod input_handler;
+pub mod frontend;
 
-// Views
-pub mod stats;
-pub mod help;
-pub mod options;
+// 2. Re-export frontend modules for convenience
+pub use frontend::layout_tree;
+pub use frontend::theme;
+pub use frontend::view_router;
 
-use layout_tree::{TilingManager, ViewType};
+// 3. Re-export Views (directly from the views module now)
+pub use frontend::views::stats;
+// When you implement the other files, uncomment these:
+pub use frontend::views::polar;
+pub use frontend::views::isometric;
+pub use frontend::views::spectrogram;
+pub use frontend::views::phase;
+pub use frontend::views::camera;
+
+// 4. Re-export Overlays
+pub use frontend::overlays::help;
+pub use frontend::overlays::options;
+
+// --- Imports ---
+use layout_tree::{TilingManager};
 use theme::{Theme, ThemeType};
 
 // --- App State ---
@@ -56,7 +66,6 @@ impl App {
     }
 
     fn on_tick(&mut self) {
-        // This is where we will eventually poll the Backend Channel
         self.packet_count += 1;
         if self.packet_count % 10 == 0 {
             self.last_rssi = -30 - (rand::random::<i32>().abs() % 60);
@@ -77,36 +86,32 @@ impl App {
 
 // --- Main Loop ---
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 1. Setup Terminal
+    // Setup Terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    // 2. Initialize App
+    // Initialize App
     let mut app = App::new();
 
-    // 3. Run Loop
+    // Run Loop
     loop {
-        // A. Draw UI
         terminal.draw(|f| view_router::ui(f, &app))?;
 
-        // B. Handle Input (Poll for 16ms to target ~60fps)
         if event::poll(Duration::from_millis(16))? {
             input_handler::handle_event(&mut app)?;
         }
 
-        // C. Update Logic / Process Data
         app.on_tick();
 
-        // D. Exit Condition
         if app.should_quit {
             break;
         }
     }
 
-    // 4. Cleanup
+    // Cleanup
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen, DisableMouseCapture)?;
     terminal.show_cursor()?;

@@ -3,8 +3,9 @@
 
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use std::io;
+use ratatui::layout::Direction;
 use crate::App;
-use crate::layout_tree::{ViewType, Direction};
+use crate::layout_tree::ViewType;
 
 /// Handles a single event from crossterm.
 /// Returns Ok(true) if the app should quit, Ok(false) otherwise.
