@@ -63,28 +63,10 @@ async fn main(spawner: Spawner) {
     csi_coll_snif.start_collection().await;
 
     // Collect for 2 Seconds
-    with_timeout(Duration::from_secs(2), async {
+    with_timeout(Duration::from_secs(20), async {
         loop {
-            csi_coll_snif.print_csi_w_metadata().await;
-        }
-    })
-    .await
-    .unwrap_err();
-
-    // Stop Collection
-    csi_coll_snif.stop_collection().await;
-
-    println!("Starting Again in 5 seconds");
-    Timer::after(Duration::from_secs(5)).await;
-    println!("Restarting Collection");
-
-    // Start Collection
-    csi_coll_snif.start_collection().await;
-
-    // Collect for 2 Seconds
-    with_timeout(Duration::from_secs(2), async {
-        loop {
-            csi_coll_snif.print_csi_w_metadata().await;
+            let csi_data = csi_coll_snif.get_csi_data().await;
+            println!("CSI Data: {:x?}", csi_data);
         }
     })
     .await
