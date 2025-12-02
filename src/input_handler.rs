@@ -1,18 +1,27 @@
 // --- File: src/input_handler.rs ---
 // --- Purpose: Handles keyboard input events and maps them to App actions (Controller Logic) ---
 
-use crossterm::event::{self, Event, KeyCode, KeyModifiers, MouseEvent, MouseEventKind, MouseButton};
+use crossterm::event::{self, Event, KeyCode, KeyModifiers, MouseEvent, MouseEventKind, MouseButton, KeyEventKind};
 use std::io;
 use ratatui::layout::Direction;
 use crate::App;
 use crate::frontend::overlays::view_selector::AVAILABLE_VIEWS;
 use crate::frontend::overlays::main_menu::MENU_ITEMS;
+use crate::frontend::overlays::theme_selector::AVAILABLE_THEMES;
 use crate::config_manager;
 use crate::frontend::view_traits::ViewBehavior;
+use crate::frontend::theme::Theme;
 
+/// Returns Ok(true) if the state changed and a redraw is needed.
 pub fn handle_event(app: &mut App) -> io::Result<bool> {
     match event::read()? {
         Event::Key(key) => {
+            // FIX 1: Ignore Release events to prevent stuttering/double-input
+            if key.kind == KeyEventKind::Release {
+                return Ok(false);
+            }
+
+            // --- PRIORITY 0: Popups ---
             if handle_popups(app, key)? {
                 return Ok(true);
             }
@@ -20,7 +29,9 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
             // --- FULLSCREEN MODE NAVIGATION ---
             if let Some(fs_id) = app.fullscreen_pane_id {
                 let current_view_type = get_view_type_for_pane(app, fs_id);
-                let current_live_id = app.current_stats.packet_count; // Get Live ID
+
+                // FIX 2: Use packet_count (u64) for absolute ID navigation logic
+                let current_live_id = app.current_stats.packet_count;
                 let state = app.get_pane_state_mut(fs_id);
 
                 match key.code {
@@ -29,6 +40,7 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
                     KeyCode::Char('r') => { state.reset_live(); return Ok(true); }
 
                     // TEMPORAL NAVIGATION
+                    // Pass current_live_id (u64) not history length (usize)
                     KeyCode::Left if current_view_type.is_temporal() => {
                         state.step_back(current_live_id);
                         return Ok(true);
@@ -38,11 +50,7 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
                         return Ok(true);
                     }
 
-                    // SPACE (Pause Toggle - Optional enhancement)
-                    // If you want space to pause instead of exit fullscreen, change the mapping above.
-                    // For now, Left/Right implicitly pauses.
-
-                    // CAMERA CONTROLS
+                    // SPATIAL NAVIGATION
                     KeyCode::Char('w') if current_view_type.is_spatial() => { state.move_camera(0.0, -1.0); return Ok(true); }
                     KeyCode::Char('s') if current_view_type.is_spatial() => { state.move_camera(0.0, 1.0); return Ok(true); }
                     KeyCode::Char('a') if current_view_type.is_spatial() => { state.move_camera(-1.0, 0.0); return Ok(true); }
@@ -72,8 +80,7 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
                     // RESET FOCUSED PANE
                     KeyCode::Char('r') => {
                         let id = app.tiling.focused_pane_id;
-                        let state = app.get_pane_state_mut(id);
-                        state.reset_live();
+                        app.get_pane_state_mut(id).reset_live();
                         return Ok(true);
                     }
 
@@ -130,7 +137,7 @@ fn find_view_type_recursive(node: &crate::frontend::layout_tree::LayoutNode, tar
     }
 }
 
-// ... handle_popups remains unchanged ...
+// Handles all popup overlays
 fn handle_popups(app: &mut App, key: crossterm::event::KeyEvent) -> io::Result<bool> {
     if app.show_save_input {
         match key.code {
@@ -185,18 +192,18 @@ fn handle_popups(app: &mut App, key: crossterm::event::KeyEvent) -> io::Result<b
 
     if app.show_quit_popup {
         match key.code {
-            KeyCode::Char('y') | KeyCode::Enter => app.should_quit = true,
+            KeyCode::Char('y') | KeyCode::Enter | KeyCode::Char(' ') => app.should_quit = true,
             KeyCode::Char('n') | KeyCode::Char('q') | KeyCode::Esc => app.show_quit_popup = false,
             _ => {}
         }
         return Ok(true);
     }
 
-    if app.show_view_selector || app.show_main_menu {
+    if app.show_view_selector || app.show_main_menu || app.show_theme_selector {
         match key.code {
-            KeyCode::Up | KeyCode::Down | KeyCode::Enter | KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('m') => {
+            KeyCode::Up | KeyCode::Down | KeyCode::Enter | KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('m') | KeyCode::Char(' ') => {
                 if app.show_view_selector {
-                    if key.code == KeyCode::Enter {
+                    if key.code == KeyCode::Enter || key.code == KeyCode::Char(' ') {
                         let (selected_view, _) = AVAILABLE_VIEWS[app.view_selector_index];
                         app.tiling.set_current_view(selected_view);
                         app.show_view_selector = false;
@@ -208,9 +215,13 @@ fn handle_popups(app: &mut App, key: crossterm::event::KeyEvent) -> io::Result<b
                         app.show_view_selector = false;
                     }
                 } else if app.show_main_menu {
-                    if key.code == KeyCode::Enter {
+                    if key.code == KeyCode::Enter || key.code == KeyCode::Char(' ') {
                         match app.main_menu_index {
-                            0 => app.next_theme(),
+                            0 => {
+                                app.show_main_menu = false;
+                                app.show_theme_selector = true;
+                                app.theme_selector_index = 0;
+                            },
                             1 => { app.show_main_menu = false; app.show_save_input = true; app.input_buffer.clear(); },
                             2 => { app.show_main_menu = false; if let Ok(list) = config_manager::list_templates() { app.available_templates = list; } app.load_selector_index = 0; app.show_load_selector = true; },
                             4 => app.show_main_menu = false,
@@ -222,6 +233,18 @@ fn handle_popups(app: &mut App, key: crossterm::event::KeyEvent) -> io::Result<b
                         app.main_menu_index = (app.main_menu_index + 1) % MENU_ITEMS.len();
                     } else {
                         app.show_main_menu = false;
+                    }
+                } else if app.show_theme_selector {
+                    if key.code == KeyCode::Enter || key.code == KeyCode::Char(' ') {
+                        let (variant, _) = AVAILABLE_THEMES[app.theme_selector_index];
+                        app.theme = Theme::new(variant);
+                        app.show_theme_selector = false;
+                    } else if key.code == KeyCode::Up {
+                        if app.theme_selector_index > 0 { app.theme_selector_index -= 1; } else { app.theme_selector_index = AVAILABLE_THEMES.len() - 1; }
+                    } else if key.code == KeyCode::Down {
+                        app.theme_selector_index = (app.theme_selector_index + 1) % AVAILABLE_THEMES.len();
+                    } else {
+                        app.show_theme_selector = false;
                     }
                 }
                 return Ok(true);

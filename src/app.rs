@@ -14,10 +14,8 @@ use crate::frontend::view_state::ViewState;
 use crate::backend::csi_data::CsiData;
 use crate::backend::dataloader;
 
-// Global Constant for History Limit
 pub const MAX_HISTORY_SIZE: usize = 10000;
 
-// Data Point for History
 #[derive(Clone, Debug)]
 pub struct NetworkStats {
     pub packet_count: u64,
@@ -39,6 +37,10 @@ pub struct App {
     pub view_selector_index: usize,
     pub show_main_menu: bool,
     pub main_menu_index: usize,
+
+    // Theme Selector (NEW)
+    pub show_theme_selector: bool,
+    pub theme_selector_index: usize,
 
     // Template System State
     pub show_save_input: bool,
@@ -85,6 +87,10 @@ impl App {
             view_selector_index: 0,
             show_main_menu: false,
             main_menu_index: 0,
+
+            show_theme_selector: false,
+            theme_selector_index: 0,   
+
             show_save_input: false,
             input_buffer: String::new(),
             show_load_selector: false,
@@ -94,7 +100,6 @@ impl App {
             pane_states: HashMap::new(),
             should_quit: false,
 
-            // Init Stats
             current_stats: NetworkStats { packet_count: 0, rssi: -90, pps: 0, snr: 0, timestamp: 0, csi: None },
             history: Vec::with_capacity(MAX_HISTORY_SIZE),
             start_time: Instant::now(),
@@ -107,19 +112,12 @@ impl App {
         self.pane_states.entry(id).or_insert_with(ViewState::new)
     }
 
-    // MAIN DATA LOOP
     pub fn on_tick(&mut self) {
-        // Fetch next packet based on packet_count
         let idx = self.current_stats.packet_count;
-
         if let Some(csi_packet) = dataloader::get_data_packet(idx) {
             let elapsed = self.start_time.elapsed().as_millis() as u64;
+            let mock_pps = (idx % 50) * 12 + 100;
 
-            // Calculate derived metrics
-            let mock_pps = (idx % 50) * 12 + 100; // Still mocked until we have real timing
-
-            // FIX: Convert unsigned byte noise floor (e.g. 161) to signed dBm (e.g. -95)
-            // If value > 127, it's likely a signed int8 representation
             let noise_floor = if csi_packet.noise_floor > 127 {
                 csi_packet.noise_floor - 256
             } else {
@@ -137,7 +135,6 @@ impl App {
                 csi: Some(csi_packet),
             };
 
-            // Push to History (Ring Buffer)
             if self.history.len() >= MAX_HISTORY_SIZE {
                 self.history.remove(0);
             }
