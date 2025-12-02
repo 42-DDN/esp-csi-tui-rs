@@ -58,10 +58,36 @@ impl CsiData {
                 let value = value.trim();
                 match key {
                     "mac" => data.mac = value.to_string(),
-                    "rssi" => data.rssi = value.parse().map_err(|_| "Invalid rssi")?,
-                    "noise floor" => data.noise_floor = value.parse().map_err(|_| "Invalid noise floor")?,
-                    // ... (Keep other parsers if needed, omitted for brevity but should be there)
-                    _ => {}
+                    "rssi" => {
+                        let val: i32 = value.parse().map_err(|_| "Invalid rssi")?;
+                        data.rssi = if val > 127 { val - 256 } else { val };
+                    }
+                    "rate" => data.rate = value.parse().map_err(|_| "Invalid rate")?,
+                    "noise floor" => {
+                        let val: i32 = value.parse().map_err(|_| "Invalid noise floor")?;
+                        data.noise_floor = if val > 127 { val - 256 } else { val };
+                    }
+                    "channel" => data.channel = value.parse().map_err(|_| "Invalid channel")?,
+                    "timestamp" => data.timestamp = value.parse().map_err(|_| "Invalid timestamp")?,
+                    "sig len" => data.sig_len = value.parse().map_err(|_| "Invalid sig len")?,
+                    "rx state" => data.rx_state = value.parse().map_err(|_| "Invalid rx state")?,
+                    "secondary channel" => {
+                        data.secondary_channel = value.parse().map_err(|_| "Invalid secondary channel")?
+                    }
+                    "sgi" => data.sgi = value.parse().map_err(|_| "Invalid sgi")?,
+                    "ant" => data.ant = value.parse().map_err(|_| "Invalid ant")?,
+                    "ampdu cnt" => data.ampdu_cnt = value.parse().map_err(|_| "Invalid ampdu cnt")?,
+                    "sig_mode" => data.sig_mode = value.parse().map_err(|_| "Invalid sig_mode")?,
+                    "mcs" => data.mcs = value.parse().map_err(|_| "Invalid mcs")?,
+                    "cwb" => data.cwb = value.parse().map_err(|_| "Invalid cwb")?,
+                    "smoothing" => data.smoothing = value.parse().map_err(|_| "Invalid smoothing")?,
+                    "not sounding" => data.not_sounding = value.parse().map_err(|_| "Invalid not sounding")?,
+                    "aggregation" => data.aggregation = value.parse().map_err(|_| "Invalid aggregation")?,
+                    "stbc" => data.stbc = value.parse().map_err(|_| "Invalid stbc")?,
+                    "fec coding" => data.fec_coding = value.parse().map_err(|_| "Invalid fec coding")?,
+                    "sig_len" => data.sig_len_extra = value.parse().map_err(|_| "Invalid sig_len_extra")?,
+                    "data length" => data.data_length = value.parse().map_err(|_| "Invalid data length")?,
+                    _ => {} // Ignore unknown fields
                 }
             }
         }

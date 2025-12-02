@@ -62,6 +62,7 @@ pub struct App {
     // Timing State
     pub start_time: Instant,
     pub last_update_time: Instant,
+    pub pps_window: Vec<usize>,
 
     // Interaction Caches & Backend
     pub pane_regions: RefCell<Vec<(usize, Rect)>>,
@@ -118,6 +119,7 @@ impl App {
 
             start_time: Instant::now(),
             last_update_time: Instant::now(),
+            pps_window: Vec::new(),
 
             pane_regions: RefCell::new(Vec::new()),
             splitter_regions: RefCell::new(Vec::new()),
@@ -146,15 +148,25 @@ impl App {
             let raw_packets = self.dataloader.drain_buffer();
             let count = raw_packets.len();
 
+            // Update PPS Window
+            self.pps_window.push(count);
+            // Keep last 1 second of history (10 * 100ms)
+            if self.pps_window.len() > 10 {
+                self.pps_window.remove(0);
+            }
+
+            let total_packets: usize = self.pps_window.iter().sum();
+            let window_secs = self.pps_window.len() as f64 * UPDATE_INTERVAL.as_secs_f64();
+            let calculated_pps = if window_secs > 0.0 {
+                (total_packets as f64 / window_secs) as u64
+            } else {
+                0
+            };
+
             if count > 0 {
                 // Calculate Average
                 let averaged_csi = CsiData::average(&raw_packets);
                 let elapsed_ms = self.start_time.elapsed().as_millis() as u64;
-
-                // PPS Calculation: (Packets in this batch) / (Time since last update in seconds)
-                // interval is 0.5s. If we got 50 packets, PPS = 50 / 0.5 = 100.
-                let interval_secs = UPDATE_INTERVAL.as_secs_f64();
-                let calculated_pps = (count as f64 / interval_secs) as u64;
 
                 let noise = averaged_csi.noise_floor;
                 let snr = averaged_csi.rssi - noise;
@@ -179,7 +191,7 @@ impl App {
             } else {
                 // No data received in this interval
                 // We can either hold the last value or show "0 PPS"
-                 self.current_stats.pps = 0;
+                 self.current_stats.pps = calculated_pps;
             }
 
             self.last_update_time = Instant::now();
