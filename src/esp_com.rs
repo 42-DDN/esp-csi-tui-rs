@@ -132,17 +132,21 @@ fn run_replay(app: Arc<Mutex<App>>, path: String) {
             }
         }
 
-        let mut packet = packets[index].clone();
-        // Update timestamp to simulate live data
-        packet.timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_micros() as u64;
+        if index < packets.len() {
+            let mut packet = packets[index].clone();
+            // Update timestamp to simulate live data
+            packet.timestamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_micros() as u64;
 
-        push_data_to_app(&app, packet);
+            push_data_to_app(&app, packet);
 
-        index = (index + 1) % packets.len();
-        thread::sleep(Duration::from_millis(10)); // Replay faster? Or 100ms? Let's do 10ms for smooth replay
+            index += 1;
+            thread::sleep(Duration::from_millis(10));
+        } else {
+            thread::sleep(Duration::from_millis(100));
+        }
     }
 }
 
