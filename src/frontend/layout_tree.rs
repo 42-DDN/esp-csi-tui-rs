@@ -29,6 +29,7 @@ pub enum ViewType {
     Spectrogram,
     Phase,
     Camera,
+    RawScatter,
 }
 
 impl ViewType {
@@ -41,7 +42,16 @@ impl ViewType {
             ViewType::Spectrogram => "Spectrogram",
             ViewType::Phase => "Phase Plot",
             ViewType::Camera => "Camera Feed",
+            ViewType::RawScatter => "Multipath Scatter",
         }
+    }
+
+    pub fn is_spatial(&self) -> bool {
+        matches!(self, ViewType::Isometric | ViewType::RawScatter | ViewType::Polar)
+    }
+
+    pub fn is_temporal(&self) -> bool {
+        matches!(self, ViewType::Isometric | ViewType::Spectrogram | ViewType::Phase | ViewType::RawScatter | ViewType::Polar)
     }
 }
 

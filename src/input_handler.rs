@@ -10,7 +10,6 @@ use crate::frontend::overlays::view_selector::AVAILABLE_VIEWS;
 use crate::frontend::overlays::main_menu::MENU_ITEMS;
 use crate::frontend::overlays::theme_selector::AVAILABLE_THEMES;
 use crate::config_manager;
-use crate::frontend::view_traits::ViewBehavior;
 use crate::frontend::theme::Theme;
 
 pub fn handle_event(app: &mut App) -> io::Result<bool> {
@@ -30,14 +29,15 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
                 let current_view_type = get_view_type_for_pane(app, fs_id);
                 // REFACTOR: Changed packet_count to id
                 let current_live_id = app.current_stats.id;
+                let min_id = app.history.first().map(|p| p.id).unwrap_or(0);
                 let state = app.get_pane_state_mut(fs_id);
 
                 match key.code {
                     KeyCode::Char('q') => { app.show_quit_popup = true; return Ok(true); }
                     KeyCode::Char(' ') | KeyCode::Esc => { app.fullscreen_pane_id = None; return Ok(true); }
                     KeyCode::Char('r') => { state.reset_live(); return Ok(true); }
-                    KeyCode::Left if current_view_type.is_temporal() => { state.step_back(current_live_id); return Ok(true); }
-                    KeyCode::Right if current_view_type.is_temporal() => { state.step_forward(current_live_id); return Ok(true); }
+                    KeyCode::Left if current_view_type.is_temporal() => { state.step_back(current_live_id, min_id); return Ok(true); }
+                    KeyCode::Right if current_view_type.is_temporal() => { state.step_forward(current_live_id, min_id); return Ok(true); }
                     KeyCode::Char('w') if current_view_type.is_spatial() => { state.move_camera(0.0, -1.0); return Ok(true); }
                     KeyCode::Char('s') if current_view_type.is_spatial() => { state.move_camera(0.0, 1.0); return Ok(true); }
                     KeyCode::Char('a') if current_view_type.is_spatial() => { state.move_camera(-1.0, 0.0); return Ok(true); }
@@ -96,6 +96,7 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
                     KeyCode::Delete => { app.tiling.close_focused_pane(); return Ok(true); }
                     KeyCode::Char(' ') => { app.fullscreen_pane_id = Some(app.tiling.focused_pane_id); return Ok(true); }
                     KeyCode::Char('r') => { app.get_pane_state_mut(app.tiling.focused_pane_id).reset_live(); return Ok(true); }
+
                     KeyCode::Char(c) if c.is_digit(10) => {
                         let id = if c == '0' { 10 } else { c.to_digit(10).unwrap() as usize };
                         if app.pane_regions.borrow().iter().any(|(pid, _)| *pid == id) {

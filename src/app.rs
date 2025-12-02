@@ -31,6 +31,9 @@ pub struct NetworkStats {
     pub snr: i32,
     pub timestamp: u64,
     pub csi: Option<CsiData>,
+    // Cumulative I/Q Distribution Grid (24x24)
+    // Stores the frequency count of (I, Q) pairs accumulated over time.
+    pub distribution_grid: [[f32; 24]; 24],
 }
 
 pub struct App {
@@ -118,7 +121,15 @@ impl App {
             should_quit: false,
 
             dataloader: Dataloader::new(),
-            current_stats: NetworkStats { id: 0, rssi: -90, pps: 0, snr: 0, timestamp: 0, csi: None },
+            current_stats: NetworkStats {
+                id: 0,
+                rssi: -90,
+                pps: 0,
+                snr: 0,
+                timestamp: 0,
+                csi: None,
+                distribution_grid: [[0.0; 24]; 24],
+            },
             history: Vec::with_capacity(MAX_HISTORY_SIZE),
 
             start_time: Instant::now(),
@@ -186,6 +197,26 @@ impl App {
                 let noise = averaged_csi.noise_floor;
                 let snr = averaged_csi.rssi - noise;
 
+                // --- Calculate Distribution Grid (Cumulative) ---
+                let mut grid = self.current_stats.distribution_grid; // Copy previous state (Cumulative)
+                const GRID_SIZE: usize = 24;
+                const MIN_VAL: f64 = -128.0;
+                const MAX_VAL: f64 = 128.0;
+                const BIN_WIDTH: f64 = (MAX_VAL - MIN_VAL) / GRID_SIZE as f64;
+
+                let sc_count = averaged_csi.csi_raw_data.len() / 2;
+                for s in 0..sc_count {
+                    let i_val = averaged_csi.csi_raw_data.get(s * 2).copied().unwrap_or(0) as f64;
+                    let q_val = averaged_csi.csi_raw_data.get(s * 2 + 1).copied().unwrap_or(0) as f64;
+
+                    let bx = ((i_val - MIN_VAL) / BIN_WIDTH).floor() as usize;
+                    let by = ((q_val - MIN_VAL) / BIN_WIDTH).floor() as usize;
+
+                    if bx < GRID_SIZE && by < GRID_SIZE {
+                        grid[bx][by] += 1.0;
+                    }
+                }
+
                 // Create new Stat Snapshot
                 let new_stat = NetworkStats {
                     id: self.current_stats.id + 1,
@@ -194,6 +225,7 @@ impl App {
                     snr,
                     timestamp: elapsed_ms,
                     csi: Some(averaged_csi.clone()),
+                    distribution_grid: grid,
                 };
 
                 self.current_stats = new_stat.clone();
