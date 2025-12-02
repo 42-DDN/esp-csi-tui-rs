@@ -14,6 +14,12 @@ use crate::frontend::view_state::ViewState;
 use crate::backend::csi_data::CsiData;
 use crate::rerun_stream::SharedRerunStreamer;
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum DataSource {
+    Serial,
+    FileReplay(String),
+}
+
 // We store fewer packets because we are storing averages now.
 // 10,000 averages @ 10Hz = 1000 seconds (~16 minutes) of history.
 pub const MAX_HISTORY_SIZE: usize = 10000;
@@ -61,6 +67,13 @@ pub struct App {
     pub pane_states: HashMap<usize, ViewState>,
     pub should_quit: bool,
     pub should_reset_esp: bool,
+    
+    // Data Source State
+    pub data_source: DataSource,
+    pub show_replay_selector: bool,
+    pub replay_selector_index: usize,
+    pub available_replays: Vec<String>,
+    pub should_switch_source: bool,
 
     // Data State
     pub current_stats: NetworkStats,
@@ -125,6 +138,12 @@ impl App {
             pane_states: HashMap::new(),
             should_quit: false,
             should_reset_esp: false,
+
+            data_source: DataSource::Serial,
+            show_replay_selector: false,
+            replay_selector_index: 0,
+            available_replays: Vec::new(),
+            should_switch_source: false,
 
             dataloader: Dataloader::new(),
             current_stats: NetworkStats {

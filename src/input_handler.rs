@@ -305,6 +305,30 @@ fn handle_popups(app: &mut App, key: crossterm::event::KeyEvent) -> io::Result<b
         return Ok(true);
     }
 
+    // 4.5 REPLAY SELECTOR
+    if app.show_replay_selector {
+        match key.code {
+            KeyCode::Up => {
+                if app.replay_selector_index > 0 { app.replay_selector_index -= 1; }
+                else if !app.available_replays.is_empty() { app.replay_selector_index = app.available_replays.len() - 1; }
+            }
+            KeyCode::Down => {
+                if !app.available_replays.is_empty() { app.replay_selector_index = (app.replay_selector_index + 1) % app.available_replays.len(); }
+            }
+            KeyCode::Enter | KeyCode::Char(' ') => {
+                if !app.available_replays.is_empty() {
+                    let filename = app.available_replays[app.replay_selector_index].clone();
+                    app.data_source = crate::app::DataSource::FileReplay(filename);
+                    app.should_switch_source = true;
+                    app.show_replay_selector = false;
+                }
+            }
+            KeyCode::Esc | KeyCode::Char('q') => app.show_replay_selector = false,
+            _ => {}
+        }
+        return Ok(true);
+    }
+
     // 5. MENUS
     if app.show_view_selector || app.show_main_menu {
         match key.code {
@@ -328,8 +352,26 @@ fn handle_popups(app: &mut App, key: crossterm::event::KeyEvent) -> io::Result<b
                             1 => { app.show_main_menu = false; app.show_save_input = true; app.input_buffer.clear(); },
                             2 => { app.show_main_menu = false; if let Ok(list) = config_manager::list_templates() { app.available_templates = list; } app.load_selector_index = 0; app.show_load_selector = true; },
                             3 => { app.show_main_menu = false; app.show_export_input = true; app.export_input_buffer.clear(); },
-                            4 => { app.show_main_menu = false; app.should_reset_esp = true; },
-                            5 => app.show_main_menu = false,
+                            4 => { 
+                                app.show_main_menu = false; 
+                                // Scan for CSV files
+                                if let Ok(paths) = std::fs::read_dir(".") {
+                                    app.available_replays = paths.filter_map(|entry| {
+                                        let entry = entry.ok()?;
+                                        let path = entry.path();
+                                        if path.extension().and_then(|s| s.to_str()) == Some("csv") {
+                                            Some(path.file_name()?.to_str()?.to_string())
+                                        } else {
+                                            None
+                                        }
+                                    }).collect();
+                                    app.available_replays.sort();
+                                }
+                                app.replay_selector_index = 0;
+                                app.show_replay_selector = true; 
+                            },
+                            5 => { app.show_main_menu = false; app.should_reset_esp = true; },
+                            6 => app.show_main_menu = false,
                             _ => {}
                         }
                     } else if key.code == KeyCode::Up {

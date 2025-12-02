@@ -46,6 +46,7 @@ pub fn ui(f: &mut Frame, app: &App) {
     if app.show_load_selector { load_template::draw(f, app, f.area()); }
     if app.show_export_input { export_data::draw(f, app, f.area()); }
     if app.show_theme_selector { theme_selector::draw(f, app, f.area()); }
+    if app.show_replay_selector { replay_selector::draw(f, app, f.area()); }
     if app.show_quit_popup { quit::draw(f, app, f.area()); }
 }
 

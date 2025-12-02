@@ -10,3 +10,4 @@ pub mod save_template;
 pub mod load_template;
 pub mod theme_selector;
 pub mod export_data;
+pub mod replay_selector;

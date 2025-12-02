@@ -4,11 +4,12 @@
 use ratatui::{prelude::*, widgets::*};
 use crate::App;
 
-pub const MENU_ITEMS: [&str; 6] = [
+pub const MENU_ITEMS: [&str; 7] = [
     "Change Theme",
     "Save Template",
     "Load Template",
     "Export Data",
+    "Replay Data",
     "Reset ESP",
     "Close Menu"
 ];
