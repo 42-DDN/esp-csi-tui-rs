@@ -51,7 +51,7 @@ fn draw_header(f: &mut Frame, app: &App, area: Rect) {
     let hotkeys = if app.fullscreen_pane_id.is_some() {
         " [Space] Exit Fullscreen | [Arrows] Playback | [WASD] Move Camera | [R] Reset Live "
     } else {
-        " [Shift+Arrow] Split | [Space] Fullscreen | [Del] Close | [0-9] Focus | [Enter] View | [M] Menu "
+        " [Shift+Arrow] Split | [Del] Close | [0-9/Click] Focus | [Enter] View | [R] Reset | [M] Menu "
     };
 
     let header = Paragraph::new(hotkeys)

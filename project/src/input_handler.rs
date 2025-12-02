@@ -32,7 +32,6 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
 
                     // TEMPORAL NAVIGATION (Arrows)
                     KeyCode::Left if current_view_type.is_temporal() => {
-                        // Pass current history length limit
                         state.step_back(history_len);
                         return Ok(true);
                     }
@@ -67,6 +66,14 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
                     KeyCode::Tab => { app.tiling.focus_next(); return Ok(true); }
                     KeyCode::Delete => { app.tiling.close_focused_pane(); return Ok(true); }
                     KeyCode::Char(' ') => { app.fullscreen_pane_id = Some(app.tiling.focused_pane_id); return Ok(true); }
+
+                    // RESET FOCUSED PANE (New)
+                    KeyCode::Char('r') => {
+                        let id = app.tiling.focused_pane_id;
+                        let state = app.get_pane_state_mut(id);
+                        state.reset_live();
+                        return Ok(true);
+                    }
 
                     KeyCode::Char(c) if c.is_digit(10) => {
                         let id = if c == '0' { 10 } else { c.to_digit(10).unwrap() as usize };
