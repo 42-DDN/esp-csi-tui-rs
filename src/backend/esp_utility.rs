@@ -1,4 +1,4 @@
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use std::thread;
 use std::time::Duration;
 use serialport::SerialPort;
@@ -14,11 +14,27 @@ pub fn reset_and_start_esp(port: &mut Box<dyn SerialPort>) -> io::Result<()> {
     // Release Reset
     port.write_request_to_send(false)?;
     
-    // 2. Wait for boot (approx 500ms usually sufficient for bootloader to hand over)
-    thread::sleep(Duration::from_millis(500));
+    // 2. Wait for boot and prompt
+    // The ESP sends a welcome message ending with "> " when ready.
+    let start = std::time::Instant::now();
+    let mut buf = [0u8; 1];
+    while start.elapsed() < Duration::from_secs(10) {
+        match port.read(&mut buf) {
+            Ok(n) if n > 0 => {
+                if buf[0] == b'>' {
+                    break;
+                }
+            }
+            Ok(_) => continue,
+            Err(ref e) if e.kind() == io::ErrorKind::TimedOut => continue,
+            Err(e) => {
+                return Err(e);
+            }
+        }
+    }
 
     // 3. Send "start" command
-    port.write_all(b"start\n")?;
+    port.write_all(b"start\r\n")?;
     port.flush()?;
 
     Ok(())

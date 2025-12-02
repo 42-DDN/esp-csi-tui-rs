@@ -41,9 +41,7 @@ pub fn esp_com(app: Arc<Mutex<App>>) {
                 };
 
                 if should_reset {
-                    if let Err(e) = backend::esp_utility::reset_and_start_esp(&mut port) {
-                        eprintln!("Failed to reset ESP: {}", e);
-                    }
+                    if let Err(_e) = backend::esp_utility::reset_and_start_esp(&mut port) {}
                     if let Ok(mut app) = app.lock() {
                         app.should_reset_esp = false;
                     }
@@ -55,6 +53,13 @@ pub fn esp_com(app: Arc<Mutex<App>>) {
                 let mut collected_lines = String::new();
                 let mut lines_read = 0;
                 while lines_read < 24 {
+                    // Check for reset request
+                    if let Ok(guard) = app.lock() {
+                        if guard.should_reset_esp {
+                            break;
+                        }
+                    }
+
                     let mut line = String::new();
                     match reader.read_line(&mut line) {
                         Ok(len) => {
