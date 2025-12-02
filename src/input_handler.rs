@@ -215,6 +215,33 @@ fn handle_popups(app: &mut App, key: crossterm::event::KeyEvent) -> io::Result<b
         return Ok(true);
     }
 
+    // 1.5 EXPORT INPUT
+    if app.show_export_input {
+        match key.code {
+            KeyCode::Enter => {
+                if !app.export_input_buffer.is_empty() {
+                    let timestamp = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs();
+
+                    // Export CSV
+                    let filename = format!("{}_{}.csv", app.export_input_buffer, timestamp);
+                    // Use Dataloader's raw history for CSV export
+                    let _ = app.dataloader.export_history_to_csv(&filename);
+
+                    app.show_export_input = false;
+                    app.export_input_buffer.clear();
+                }
+            }
+            KeyCode::Esc => { app.show_export_input = false; app.export_input_buffer.clear(); }
+            KeyCode::Backspace => { app.export_input_buffer.pop(); }
+            KeyCode::Char(c) => { app.export_input_buffer.push(c); }
+            _ => {}
+        }
+        return Ok(true);
+    }
+
     // 2. THEME SELECTOR
     if app.show_theme_selector {
         match key.code {
@@ -300,6 +327,7 @@ fn handle_popups(app: &mut App, key: crossterm::event::KeyEvent) -> io::Result<b
                             0 => { app.show_main_menu = false; app.show_theme_selector = true; app.theme_selector_index = 0; },
                             1 => { app.show_main_menu = false; app.show_save_input = true; app.input_buffer.clear(); },
                             2 => { app.show_main_menu = false; if let Ok(list) = config_manager::list_templates() { app.available_templates = list; } app.load_selector_index = 0; app.show_load_selector = true; },
+                            3 => { app.show_main_menu = false; app.show_export_input = true; app.export_input_buffer.clear(); },
                             4 => app.show_main_menu = false,
                             _ => {}
                         }

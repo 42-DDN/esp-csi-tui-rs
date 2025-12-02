@@ -8,7 +8,7 @@ pub const MENU_ITEMS: [&str; 5] = [
     "Change Theme",
     "Save Template",
     "Load Template",
-    "Export Data [TODO]",
+    "Export Data",
     "Close Menu"
 ];
 

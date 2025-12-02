@@ -39,12 +39,12 @@ impl From<&CsiData> for CsiFrame {
             if 2 * i + 1 < data.csi_raw_data.len() {
                 let re = data.csi_raw_data[2 * i] as f32;
                 let im = data.csi_raw_data[2 * i + 1] as f32;
-                
+
                 frame.real[i] = re;
                 frame.imag[i] = im;
                 frame.amplitude[i] = (re * re + im * im).sqrt();
                 frame.phase[i] = im.atan2(re);
-                frame.subcarriers[i] = re as i16; 
+                frame.subcarriers[i] = re as i16;
             }
         }
         frame
@@ -58,7 +58,7 @@ pub struct RerunStreamer {
     rrd_record: Option<RecordingStream>,
     #[cfg(feature = "rerun")]
     heatmap: VecDeque<[f32; 64]>,
-    
+
     app_id: String,
 }
 
@@ -71,7 +71,7 @@ impl RerunStreamer {
             rrd_record: None,
             #[cfg(feature = "rerun")]
             heatmap: VecDeque::with_capacity(500),
-            
+
             app_id: app_id.to_string(),
         }
     }
@@ -89,7 +89,7 @@ impl RerunStreamer {
 
             let rec = RecordingStreamBuilder::new(self.app_id.as_str())
                 .connect_grpc_opts(target.clone());
-            
+
             match rec {
                 Ok(r) => {self.rr = Some(r);},
                 Err(_e) => {}
@@ -121,7 +121,7 @@ impl RerunStreamer {
                 let height = self.heatmap.len();
                 let width = 64;
                 let mut img_data = Vec::with_capacity(width * height);
-                
+
                 // Normalize to 0-255
                 let max_val = self.heatmap.iter().flatten().fold(0.0f32, |a, &b| a.max(b));
                 let scale = if max_val > 0.0 { 255.0 / max_val } else { 0.0 };
@@ -183,7 +183,7 @@ impl RerunStreamer {
 
             let rec = RecordingStreamBuilder::new(self.app_id.as_str())
                 .save(path)?;
-            
+
             self.rrd_record = Some(rec);
             Ok(())
         }
@@ -218,6 +218,63 @@ impl RerunStreamer {
         #[cfg(feature = "rerun")]
         {
             self.rr = None;
+        }
+    }
+
+    pub fn export_history_to_rrd(&self, history: &[CsiData], filename: &str) -> Result<(), Box<dyn std::error::Error>> {
+        #[cfg(feature = "rerun")]
+        {
+            // Ensure parent directory exists
+            if let Some(parent) = std::path::Path::new(filename).parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+
+            let rec = RecordingStreamBuilder::new(self.app_id.as_str())
+                .save(filename)?;
+
+            for data in history {
+                let frame = CsiFrame::from(data);
+                rec.set_time_sequence("frame_idx", frame.timestamp as i64);
+
+                // 1. Bar Plot (Amplitude) -> "csi/bar_amplitude"
+                let _ = rec.log(
+                    "csi/bar_amplitude",
+                    &BarChart::new(frame.amplitude.to_vec()),
+                );
+
+                // 2. Heatmap -> "csi/heatmap"
+                // (We don't have the heatmap history here, so we skip it or just log the current frame as a row?
+                // Actually, the heatmap in push_csi is a rolling buffer.
+                // For export, we might just want to log the amplitude as a tensor row if we want a heatmap over time in Rerun.
+                // But Rerun handles time series of tensors well.
+                // Let's just log the amplitude as a tensor row for now, or skip the heatmap if it's derived.)
+
+                // 3. 3D Scatter -> "csi/complex_scatter"
+                let positions: Vec<Position3D> = (0..64).map(|i| {
+                    Position3D::new(frame.real[i], frame.imag[i], frame.amplitude[i])
+                }).collect();
+
+                let colors: Vec<Color> = (0..64).map(|i| {
+                    // Map phase (-PI..PI) to 0..255
+                    let p = frame.phase[i];
+                    let norm = (p + std::f32::consts::PI) / (2.0 * std::f32::consts::PI);
+                    let c = (norm * 255.0).clamp(0.0, 255.0) as u8;
+                    Color::from_unmultiplied_rgba(c, 100, 255 - c, 255)
+                }).collect();
+
+                let _ = rec.log(
+                    "csi/complex_scatter",
+                    &Points3D::new(positions).with_colors(colors),
+                );
+            }
+
+            // Explicitly drop rec to flush and close
+            drop(rec);
+            Ok(())
+        }
+        #[cfg(not(feature = "rerun"))]
+        {
+            Err("Rerun feature disabled".into())
         }
     }
 }

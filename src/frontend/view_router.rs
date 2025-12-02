@@ -44,6 +44,7 @@ pub fn ui(f: &mut Frame, app: &App) {
     if app.show_main_menu { main_menu::draw(f, app, f.area()); }
     if app.show_save_input { save_template::draw(f, app, f.area()); }
     if app.show_load_selector { load_template::draw(f, app, f.area()); }
+    if app.show_export_input { export_data::draw(f, app, f.area()); }
     if app.show_theme_selector { theme_selector::draw(f, app, f.area()); }
     if app.show_quit_popup { quit::draw(f, app, f.area()); }
 }
@@ -51,7 +52,7 @@ pub fn ui(f: &mut Frame, app: &App) {
 fn draw_header(f: &mut Frame, app: &App, area: Rect) {
     // Build status indicators
     let mut status_parts = Vec::new();
-    
+
     // Rerun status
     if let Some(ref streamer) = app.rerun_streamer {
         if let Ok(s) = streamer.lock() {
@@ -63,7 +64,7 @@ fn draw_header(f: &mut Frame, app: &App, area: Rect) {
             }
         }
     }
-    
+
     let hotkeys = if app.fullscreen_pane_id.is_some() {
         " [Space] Exit Fullscreen | [Arrows] Playback | [WASD] Move Camera | [R] Reset Live | [Q] Quit "
     } else {

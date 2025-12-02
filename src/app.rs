@@ -51,6 +51,8 @@ pub struct App {
     pub theme_selector_index: usize,
     pub show_save_input: bool,
     pub input_buffer: String,
+    pub show_export_input: bool,
+    pub export_input_buffer: String,
     pub show_load_selector: bool,
     pub load_selector_index: usize,
     pub available_templates: Vec<(String, bool)>,
@@ -73,7 +75,7 @@ pub struct App {
     pub dataloader: Dataloader,
     pub splitter_regions: RefCell<Vec<(Vec<usize>, Rect, crate::frontend::layout_tree::SplitDirection, u16, u16)>>,
     pub drag_state: Option<crate::app::DragState>, // Re-using DragState struct definition or define here if moved
-    
+
     // Rerun Integration
     pub rerun_streamer: Option<SharedRerunStreamer>,
 }
@@ -113,6 +115,8 @@ impl App {
             theme_selector_index: 0,
             show_save_input: false,
             input_buffer: String::new(),
+            show_export_input: false,
+            export_input_buffer: String::new(),
             show_load_selector: false,
             load_selector_index: 0,
             available_templates: Vec::new(),
