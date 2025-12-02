@@ -13,7 +13,8 @@ impl ViewBehavior for ViewType {
         match self {
             ViewType::Dashboard |
             ViewType::Spectrogram |
-            ViewType::Phase => true,
+            ViewType::Phase |
+            ViewType::RawScatter => true,
             _ => false,
         }
     }
@@ -21,7 +22,9 @@ impl ViewBehavior for ViewType {
     fn is_spatial(&self) -> bool {
         match self {
             ViewType::Polar |
-            ViewType::Isometric => true,
+            ViewType::Isometric |
+            ViewType::Phase |
+            ViewType::RawScatter => true,
             _ => false,
         }
     }

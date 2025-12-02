@@ -42,6 +42,12 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
         Row::new(vec![" M", " Main Menu"]),
         Row::new(vec![" T", " Next Theme"]),
         Row::new(vec![" Q", " Quit"]),
+        Row::new(vec!["", ""]),
+
+        // Section: Rerun
+        Row::new(vec![Span::styled(" RERUN INTEGRATION ", Style::default().add_modifier(Modifier::BOLD)), Span::raw("")]),
+        Row::new(vec![" Shift + R", " Toggle Live Streaming"]),
+        Row::new(vec![" Shift + L", " Toggle RRD Recording"]),
     ];
 
     let widths = [
