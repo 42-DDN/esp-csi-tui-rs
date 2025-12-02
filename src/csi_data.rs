@@ -1,3 +1,6 @@
+// --- File: src/backend/csi_data.rs ---
+// --- Purpose: Defines the CsiData structure and parsing logic ---
+
 #[derive(Debug, Default, Clone)]
 pub struct CsiData {
     pub mac: String,
