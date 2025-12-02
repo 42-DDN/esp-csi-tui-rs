@@ -7,17 +7,20 @@ use std::collections::VecDeque;
 pub struct Dataloader {
     // Changed from random-access Vec to a Queue
     pub queue: VecDeque<CsiData>,
+    pub history: Vec<CsiData>,
 }
 
 impl Dataloader {
     pub fn new() -> Self {
         Self {
             queue: VecDeque::new(),
+            history: Vec::new(),
         }
     }
 
     /// Called by the backend thread to add fresh data
     pub fn push_data_packet(&mut self, packet: CsiData) {
+        self.history.push(packet.clone());
         self.queue.push_back(packet);
     }
 
@@ -25,5 +28,9 @@ impl Dataloader {
     /// This replaces get_data_packet
     pub fn drain_buffer(&mut self) -> Vec<CsiData> {
         self.queue.drain(..).collect()
+    }
+
+    pub fn export_history(&self) -> &Vec<CsiData> {
+        &self.history
     }
 }
