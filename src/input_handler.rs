@@ -10,7 +10,6 @@ use crate::frontend::overlays::view_selector::AVAILABLE_VIEWS;
 use crate::frontend::overlays::main_menu::MENU_ITEMS;
 use crate::frontend::overlays::theme_selector::AVAILABLE_THEMES;
 use crate::config_manager;
-use crate::frontend::view_traits::ViewBehavior;//remember to remove if unneeded
 use crate::frontend::theme::Theme;
 
 pub fn handle_event(app: &mut App) -> io::Result<bool> {
