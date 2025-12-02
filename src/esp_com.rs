@@ -1,6 +1,7 @@
-use std::time::Duration;
+use std::io::{self, BufRead, BufReader};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::Duration;
 
 use crate::{App, backend};
 
@@ -9,14 +10,21 @@ pub use csi_data::CsiData;
 
 pub fn esp_com(app: Arc<Mutex<App>>) {
     // Switch to mock data for now
-    mock_esp_com(app);
+    // mock_esp_com(app);
 
-    /*
     // Real ESP implementation
-    let port_name = "/dev/ttyUSB0";
+    let ports = serialport::available_ports().unwrap_or_default();
+
+    // Find first USB port, or fallback to default /dev/ttyUSB0
+    let port_name = ports
+        .iter()
+        .find(|p| matches!(p.port_type, serialport::SerialPortType::UsbPort(_)))
+        .map(|p| p.port_name.clone())
+        .unwrap_or_else(|| "/dev/ttyUSB0".to_string());
+
     let baud_rate = 115200;
 
-    let port = serialport::new(port_name, baud_rate)
+    let port = serialport::new(&port_name, baud_rate)
         .timeout(Duration::from_millis(1000))
         .open();
 
@@ -39,31 +47,38 @@ pub fn esp_com(app: Arc<Mutex<App>>) {
                         Err(ref e) if e.kind() == io::ErrorKind::TimedOut => {
                             continue;
                         }
-                        Err(e) => {}
+                        Err(_e) => {}
                     }
                 }
 
                 match CsiData::parse(&collected_lines) {
                     Ok(data) => {
                         if let Ok(mut app) = app.lock() {
-                            app.dataloader.push_data_packet(data);
+                            app.dataloader.push_data_packet(data.clone());
+
+                            // Log to Rerun if enabled
+                            if let Some(ref streamer) = app.rerun_streamer {
+                                if let Ok(mut s) = streamer.lock() {
+                                    #[cfg(feature = "rerun")]
+                                    {
+                                        let frame = crate::rerun_stream::CsiFrame::from(&data);
+                                        s.push_csi(&frame);
+                                    }
+                                }
+                            }
                         }
                     }
-                    Err(e) => {}
+                    Err(_e) => {}
                 }
             }
         }
-        Err(e) => {}
+        Err(_e) => {}
     }
-    */
 }
 
 pub fn mock_esp_com(app: Arc<Mutex<App>>) {
     let file_path = "example_data.mock";
-    let content = std::fs::read_to_string(file_path).unwrap_or_else(|_| {
-        eprintln!("Failed to read mock data file: {}", file_path);
-        String::new()
-    });
+    let content = std::fs::read_to_string(file_path).unwrap_or_else(|_| String::new());
 
     let mut packets = Vec::new();
     let mut current_chunk = String::new();
@@ -84,7 +99,6 @@ pub fn mock_esp_com(app: Arc<Mutex<App>>) {
     }
 
     if packets.is_empty() {
-        eprintln!("No valid packets found in mock data.");
         return;
     }
 
@@ -107,4 +121,3 @@ pub fn mock_esp_com(app: Arc<Mutex<App>>) {
         thread::sleep(Duration::from_millis(100)); // 10Hz
     }
 }
-
