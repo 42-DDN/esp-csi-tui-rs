@@ -1,6 +1,27 @@
 // --- File: src/frontend/views/raw_scatter.rs ---
 // --- Purpose: 3D Histogram Wireframe of Complex (I/Q) Distribution ---
-
+//
+// [Graph Description]
+// A 3D Isometric Wireframe Histogram showing the density of Complex CSI values.
+// X-Axis: Real Component (I)
+// Y-Axis: Imaginary Component (Q)
+// Z-Axis (Height): Frequency of occurrence (Count)
+//
+// [Plotting Logic]
+// The app accumulates a 2D histogram (24x24 grid) of all (I, Q) pairs received over time.
+// This grid is rendered as a 3D terrain/wireframe.
+// Higher peaks indicate "stable" complex values that occur frequently.
+//
+// [Concepts & Application]
+// This view visualizes the stability and distribution of the channel state.
+// In a static environment, you expect sharp, high peaks (stable channel).
+// In a dynamic environment, the peaks flatten and spread out (high variance/noise).
+// This is analogous to a Constellation Diagram density plot.
+//
+// [Demo]
+// Start with a static setup; observe the sharp peaks.
+// Introduce motion or noise; observe the peaks "melting" or spreading into a lower, flatter terrain.
+//
 use ratatui::{prelude::*, widgets::*};
 use ratatui::widgets::canvas::{Canvas, Line as CanvasLine};
 use crate::App;

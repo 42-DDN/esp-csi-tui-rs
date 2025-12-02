@@ -1,8 +1,27 @@
 // --- File: src/frontend/views/time_domain_iso.rs ---
 // --- Purpose: Channel Impulse Response (CIR) / Multipath View ---
-// Visualizes the Time Domain (Delay Profile) via Inverse FFT of CSI data.
-// X-axis: Delay (Time Lag), Y-axis: Power, Z-axis: Packet History.
-
+//
+// [Graph Description]
+// A 3D Isometric plot of the Channel Impulse Response (Time Domain).
+// X-Axis: Delay (Time Lag / Distance)
+// Y-Axis: Power (Magnitude)
+// Z-Axis: Time (Packet History)
+//
+// [Plotting Logic]
+// Performs an Inverse Discrete Fourier Transform (IDFT) on the frequency-domain CSI data
+// to convert it into the Time Domain.
+// The resulting "peaks" represent signal paths arriving at different times.
+//
+// [Concepts & Application]
+// This view separates the Line-of-Sight (LOS) signal from reflections (Multipath).
+// - The first major peak (leftmost) is usually the LOS path (shortest distance).
+// - Subsequent peaks are reflections bouncing off walls/objects (longer distance = more delay).
+// This allows for "ranging" and analyzing the physical environment's reflective properties.
+//
+// [Demo]
+// Place a large metal reflector at varying distances from the setup.
+// You may observe a secondary peak moving left/right as you move the reflector closer/further.
+//
 use ratatui::{prelude::*, widgets::*};
 use ratatui::widgets::canvas::{Canvas, Line as CanvasLine};
 use crate::App;

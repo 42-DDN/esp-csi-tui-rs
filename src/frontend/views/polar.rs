@@ -1,7 +1,27 @@
 // --- File: src/frontend/views/polar.rs ---
 // --- Purpose: 3D Cylindrical "Tunnel" View of Amplitude vs Subcarrier History ---
-// conic plot
-
+//
+// [Graph Description]
+// A 3D "Tunnel" or Conic plot representing the signal amplitude profile over time.
+// Angle (Theta): Subcarrier Index (0 to 64 mapped to 0 to 2PI)
+// Radius (R): Signal Amplitude (Magnitude)
+// Depth (Z): Time (Packet History)
+//
+// [Plotting Logic]
+// Data is mapped to cylindrical coordinates (r, theta, z) and projected to 2D.
+// The "Tunnel" extends into the screen, with the newest data at the front (Z=0).
+// The shape of the ring represents the frequency selective fading profile of the channel.
+//
+// [Concepts & Application]
+// This visualization helps identify the "shape" of the multipath channel.
+// A perfectly flat channel would look like a perfect cylinder.
+// Real-world multipath causes constructive/destructive interference at specific frequencies,
+// creating "dents" or "bulges" in the tunnel.
+//
+// [Demo]
+// Rotate the camera (WASD) to look down the center of the tunnel.
+// Observe how the cross-sectional shape changes as you move objects in the environment.
+//
 use ratatui::{prelude::*, widgets::*};
 use ratatui::widgets::canvas::{Canvas, Line as CanvasLine};
 use crate::App;
@@ -38,7 +58,7 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect, is_focused: bool, id: usize) {
         f.render_widget(block, area);
         return;
     }
- 
+
     let stats = &app.history[target_index];
 
     // 2. Setup Data Slice (Tunnel Depth)
