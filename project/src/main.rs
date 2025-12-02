@@ -1,7 +1,7 @@
 // --- File: src/main.rs ---
 // --- Purpose: Entry Point. Configures the module tree to match the file structure. ---
 
-use std::{io, time::Duration, cell::RefCell};
+use std::{io, time::Duration, cell::RefCell, collections::HashMap};
 use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
@@ -17,11 +17,14 @@ pub mod config_manager;
 pub use frontend::layout_tree;
 pub use frontend::theme;
 pub use frontend::view_router;
+pub use frontend::view_traits;
+pub use frontend::view_state;
 pub use frontend::views::stats;
 pub use frontend::overlays::{help, options, quit, view_selector, main_menu, save_template, load_template};
 
 use layout_tree::TilingManager;
 use theme::{Theme, ThemeType};
+use view_state::ViewState;
 
 pub struct App {
     pub tiling: TilingManager,
@@ -42,6 +45,10 @@ pub struct App {
     pub show_load_selector: bool,
     pub load_selector_index: usize,
     pub available_templates: Vec<(String, bool)>,
+
+    // Fullscreen & Playback State
+    pub fullscreen_pane_id: Option<usize>, // <--- None = Tiling Mode, Some(id) = Fullscreen
+    pub pane_states: HashMap<usize, ViewState>, // <--- Stores state per pane ID
 
     pub should_quit: bool,
     pub packet_count: u64,
@@ -81,6 +88,9 @@ impl App {
             load_selector_index: 0,
             available_templates: Vec::new(),
 
+            fullscreen_pane_id: None, // Start in Tiling Mode
+            pane_states: HashMap::new(),
+
             should_quit: false,
             packet_count: 0,
             last_rssi: -85,
@@ -88,7 +98,11 @@ impl App {
         }
     }
 
-    //MOCK:
+    // Helper to get or create state for a pane
+    pub fn get_pane_state_mut(&mut self, id: usize) -> &mut ViewState {
+        self.pane_states.entry(id).or_insert_with(ViewState::new)
+    }
+
     fn on_tick(&mut self) {
         self.packet_count += 1;
         if self.packet_count % 10 == 0 {

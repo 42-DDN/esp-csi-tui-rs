@@ -28,7 +28,7 @@
                     },
                     {
                       "Pane": {
-                        "id": 4,
+                        "id": 3,
                         "view": "Isometric"
                       }
                     }
@@ -42,8 +42,8 @@
                   "children": [
                     {
                       "Pane": {
-                        "id": 3,
-                        "view": "Phase"
+                        "id": 4,
+                        "view": "Spectrogram"
                       }
                     },
                     {
@@ -61,8 +61,8 @@
       ]
     }
   },
-  "focused_pane_id": 4,
+  "focused_pane_id": 1,
   "next_id": 6,
   "is_default": false,
-  "theme_variant": "Gruvbox"
+  "theme_variant": "Light"
 }

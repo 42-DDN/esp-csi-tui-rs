@@ -63,6 +63,6 @@
   },
   "focused_pane_id": 4,
   "next_id": 6,
-  "is_default": false,
-  "theme_variant": "Gruvbox"
+  "is_default": true,
+  "theme_variant": "Catppuccin"
 }
