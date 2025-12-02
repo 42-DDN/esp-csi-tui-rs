@@ -113,6 +113,7 @@ fn render_pane(f: &mut Frame, app: &App, area: Rect, id: usize, view: ViewType, 
         ViewType::RawScatter => raw_scatter::draw(f, app, area, is_focused, id),
         ViewType::Polar => polar::draw(f, app, area, is_focused, id),
         ViewType::Spectrogram => spectrogram::draw(f, app, area, is_focused, id),
+        ViewType::Isometric => time_domain_iso::draw(f, app, area, is_focused, id),
         _ => draw_empty(f, app, area, is_focused, &view, id),
     }
 }

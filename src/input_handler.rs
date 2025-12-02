@@ -29,14 +29,15 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
                 let current_view_type = get_view_type_for_pane(app, fs_id);
                 // REFACTOR: Changed packet_count to id
                 let current_live_id = app.current_stats.id;
+                let min_id = app.history.first().map(|p| p.id).unwrap_or(0);
                 let state = app.get_pane_state_mut(fs_id);
 
                 match key.code {
                     KeyCode::Char('q') => { app.show_quit_popup = true; return Ok(true); }
                     KeyCode::Char(' ') | KeyCode::Esc => { app.fullscreen_pane_id = None; return Ok(true); }
                     KeyCode::Char('r') => { state.reset_live(); return Ok(true); }
-                    KeyCode::Left if current_view_type.is_temporal() => { state.step_back(current_live_id); return Ok(true); }
-                    KeyCode::Right if current_view_type.is_temporal() => { state.step_forward(current_live_id); return Ok(true); }
+                    KeyCode::Left if current_view_type.is_temporal() => { state.step_back(current_live_id, min_id); return Ok(true); }
+                    KeyCode::Right if current_view_type.is_temporal() => { state.step_forward(current_live_id, min_id); return Ok(true); }
                     KeyCode::Char('w') if current_view_type.is_spatial() => { state.move_camera(0.0, -1.0); return Ok(true); }
                     KeyCode::Char('s') if current_view_type.is_spatial() => { state.move_camera(0.0, 1.0); return Ok(true); }
                     KeyCode::Char('a') if current_view_type.is_spatial() => { state.move_camera(-1.0, 0.0); return Ok(true); }
