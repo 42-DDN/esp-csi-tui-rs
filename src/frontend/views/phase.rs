@@ -1,6 +1,6 @@
 // --- File: src/frontend/views/phase.rs ---
 // --- Purpose: Phase angle visualization (2.5D Wireframe Waterfall) ---
-
+// Phase vs. Subcarrier vs. Time
 use ratatui::{prelude::*, widgets::*};
 use ratatui::widgets::canvas::{Canvas, Line as CanvasLine};
 use crate::App;

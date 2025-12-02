@@ -111,6 +111,7 @@ fn render_pane(f: &mut Frame, app: &App, area: Rect, id: usize, view: ViewType, 
         ViewType::Dashboard => stats::draw(f, app, area, is_focused, id),
         ViewType::Phase => phase::draw(f, app, area, is_focused, id),
         ViewType::RawScatter => raw_scatter::draw(f, app, area, is_focused, id),
+        ViewType::Polar => polar::draw(f, app, area, is_focused, id),
         _ => draw_empty(f, app, area, is_focused, &view, id),
     }
 }

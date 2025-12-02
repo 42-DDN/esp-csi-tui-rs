@@ -45,6 +45,14 @@ impl ViewType {
             ViewType::RawScatter => "Multipath Scatter",
         }
     }
+
+    pub fn is_spatial(&self) -> bool {
+        matches!(self, ViewType::Isometric | ViewType::RawScatter | ViewType::Polar)
+    }
+
+    pub fn is_temporal(&self) -> bool {
+        matches!(self, ViewType::Isometric | ViewType::Spectrogram | ViewType::Phase | ViewType::RawScatter | ViewType::Polar)
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
