@@ -6,12 +6,12 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use ratatui::layout::Rect;
 
-use crate::dataloader::Dataloader;
-use crate::{config_manager};
+use crate::config_manager;
 use crate::frontend::layout_tree::{TilingManager, SplitDirection};
 use crate::frontend::theme::{Theme, ThemeType};
 use crate::frontend::view_state::ViewState;
 use crate::backend::csi_data::CsiData;
+use crate::backend::dataloader::Dataloader;
 
 pub const MAX_HISTORY_SIZE: usize = 10000;
 
@@ -63,7 +63,12 @@ pub struct App {
 
     pub current_stats: NetworkStats,
     pub history: Vec<NetworkStats>,
+
+    // Sampling State
+    pub last_history_timestamp: u64,
     pub start_time: Instant,
+    pub packet_buffer: Vec<CsiData>,
+    pub pps_counter: u64, // <--- Added: Real PPS Counter
 
     // Interaction Caches
     pub pane_regions: RefCell<Vec<(usize, Rect)>>,
@@ -107,8 +112,11 @@ impl App {
             dataloader: Dataloader::new(),
 
             current_stats: NetworkStats { packet_count: 0, rssi: -90, pps: 0, snr: 0, timestamp: 0, csi: None },
-            history: Vec::with_capacity(MAX_HISTORY_SIZE),
+            history: Vec::new(),
+            last_history_timestamp: 0,
             start_time: Instant::now(),
+            packet_buffer: Vec::new(),
+            pps_counter: 0, // <--- Init
 
             pane_regions: RefCell::new(Vec::new()),
             splitter_regions: RefCell::new(Vec::new()),
@@ -121,35 +129,93 @@ impl App {
     }
 
     pub fn on_tick(&mut self) {
-        // FIX: Cast u64 packet_count to usize for the backend call
-        let idx = self.current_stats.packet_count as usize;
+        let idx = self.current_stats.packet_count as usize + self.packet_buffer.len();
 
-        if let Some(csi_packet) = Dataloader::get_data_packet(&mut self.dataloader, idx) {
-            let elapsed = self.start_time.elapsed().as_millis() as u64;
-            let mock_pps = (idx as u64 % 50) * 12 + 100;
+        if let Some(csi_packet) = self.dataloader.get_data_packet(idx) {
+            // Check for valid data (non-zero payload)
+            // Real hardware sometimes sends empty CSI frames; we want to exclude those from PPS if needed,
+            // or simply count valid frames.
+            let has_data = !csi_packet.csi_raw_data.is_empty() && csi_packet.csi_raw_data.iter().any(|&x| x != 0);
 
-            let noise_floor = if csi_packet.noise_floor > 127 {
-                csi_packet.noise_floor - 256
-            } else {
-                csi_packet.noise_floor
-            };
-
-            let snr = csi_packet.rssi - noise_floor;
-
-            self.current_stats = NetworkStats {
-                packet_count: (idx + 1) as u64,
-                rssi: csi_packet.rssi,
-                pps: mock_pps,
-                snr,
-                timestamp: elapsed,
-                csi: Some(csi_packet),
-            };
-
-            if self.history.len() >= MAX_HISTORY_SIZE {
-                self.history.remove(0);
+            if has_data {
+                self.pps_counter += 1;
             }
-            self.history.push(self.current_stats.clone());
+
+            // Buffer for averaging
+            self.packet_buffer.push(csi_packet);
         }
+
+        // Check if 1 second has passed to process the average
+        let elapsed = self.start_time.elapsed().as_millis() as u64;
+
+        if elapsed >= self.last_history_timestamp + 1000 {
+            if let Some(avg_packet) = self.calculate_average_packet() {
+
+                // Use the REAL counter we tracked over the last second
+                let real_pps = self.pps_counter;
+
+                // Reset for next second
+                self.pps_counter = 0;
+
+                let noise_floor = if avg_packet.noise_floor > 127 {
+                    avg_packet.noise_floor - 256
+                } else {
+                    avg_packet.noise_floor
+                };
+
+                let snr = avg_packet.rssi - noise_floor;
+
+                // Update UI state with Averaged Data + Real PPS
+                self.current_stats = NetworkStats {
+                    packet_count: idx as u64,
+                    rssi: avg_packet.rssi,
+                    pps: real_pps,
+                    snr,
+                    timestamp: elapsed,
+                    csi: Some(avg_packet),
+                };
+
+                if self.history.len() >= MAX_HISTORY_SIZE {
+                    self.history.remove(0);
+                }
+                self.history.push(self.current_stats.clone());
+            }
+
+            self.packet_buffer.clear();
+            self.last_history_timestamp = elapsed;
+        }
+    }
+
+    // Helper to average the buffered packets
+    fn calculate_average_packet(&self) -> Option<CsiData> {
+        if self.packet_buffer.is_empty() {
+            return None;
+        }
+
+        let count = self.packet_buffer.len() as i32;
+        let mut sum_rssi = 0;
+        let mut sum_noise = 0;
+
+        let len = self.packet_buffer[0].csi_raw_data.len();
+        let mut sum_csi = vec![0i64; len];
+
+        for p in &self.packet_buffer {
+            sum_rssi += p.rssi;
+            sum_noise += p.noise_floor;
+
+            for (i, val) in p.csi_raw_data.iter().enumerate() {
+                if i < len {
+                    sum_csi[i] += *val as i64;
+                }
+            }
+        }
+
+        let mut avg = self.packet_buffer.last().cloned().unwrap();
+        avg.rssi = sum_rssi / count;
+        avg.noise_floor = sum_noise / count;
+        avg.csi_raw_data = sum_csi.into_iter().map(|x| (x / count as i64) as i32).collect();
+
+        Some(avg)
     }
 
     pub fn next_theme(&mut self) {

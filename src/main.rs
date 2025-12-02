@@ -1,4 +1,4 @@
-// --- File: src/main.rs ---
+//--- File: src/main.rs ---
 // --- Purpose: Entry Point. Configures the module tree and runs the main loop. ---
 
 use std::{io, thread, time::{Duration, Instant}};
