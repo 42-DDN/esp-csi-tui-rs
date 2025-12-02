@@ -143,23 +143,29 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect, is_focused: bool, id: usize) {
                     }
                 }
             }
-
-            // Labels
-            // Simplified labels to reduce clutter
-            ctx.print(x_min_val - 5.0, y_max_val + 2.0, "CIR (Multipath)");
-            ctx.print(x_min_val - 5.0, y_max_val - 2.0, "X: Delay | Y: Power | Z: Time");
-
-            // Axis labels
-            ctx.print(x_bins / 2.0, -8.0, "Delay ->");
-
-            // Annotate LOS (Line of Sight)
-            ctx.print(z_len * skew_x, z_len * skew_y - 2.0, "LOS");
         });
 
     f.render_widget(canvas, area);
-}
 
-/// Computes the Channel Impulse Response (CIR) magnitude via IDFT
+    // Render static labels on top (Outside the Canvas coordinate system)
+    let legend_text = vec![
+        Line::from(Span::styled("CIR (Multipath)", theme.text_highlight.add_modifier(Modifier::BOLD))),
+        Line::from(Span::styled("X: Delay | Y: Power | Z: Time", theme.text_normal)),
+        Line::from(Span::styled("LOS: Left Edge (Delay 0)", theme.text_normal)),
+    ];
+    
+    let legend = Paragraph::new(legend_text)
+        .alignment(Alignment::Left)
+        .block(Block::default().padding(Padding::new(2, 0, 1, 0))); // Padding from border
+    
+    f.render_widget(legend, area);
+
+    let axis_label = Paragraph::new(Span::styled("Delay ->", theme.text_normal))
+        .alignment(Alignment::Center)
+        .block(Block::default().padding(Padding::new(0, 0, area.height.saturating_sub(2), 0))); // Push to bottom
+
+    f.render_widget(axis_label, area);
+}/// Computes the Channel Impulse Response (CIR) magnitude via IDFT
 /// Returns a vector of magnitudes (Power Delay Profile)
 fn compute_cir(raw_data: &[i32]) -> Vec<f64> {
     let sc_count = raw_data.len() / 2;

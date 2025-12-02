@@ -36,14 +36,14 @@ impl ViewState {
     pub fn step_back(&mut self, current_live_id: u64, min_id: u64) {
         // If live, start anchoring at current
         let target = self.anchor_packet_id.unwrap_or(current_live_id);
-        
+
         if target > min_id {
             self.anchor_packet_id = Some(target - 1);
         } else {
             // Loop around to the newest packet (Live)
             // We can either set it to Some(current) or None (Live mode)
             // Setting to None returns to "Live Mode" which is effectively the newest.
-            self.anchor_packet_id = None; 
+            self.anchor_packet_id = None;
         }
     }
 
