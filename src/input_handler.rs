@@ -65,8 +65,24 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
                         return Ok(true);
                     }
                     KeyCode::Char('l') | KeyCode::Char('L') => {
-                        // RRD recording removed
-                        eprintln!("[DEBUG] Shift+L pressed, but RRD recording is disabled in this version.");
+                        // Toggle Rerun RRD recording
+                        eprintln!("[DEBUG] Shift+L pressed, toggling Rerun recording");
+                        if let Some(ref streamer) = app.rerun_streamer {
+                            if let Ok(mut s) = streamer.lock() {
+                                if s.is_recording() {
+                                    s.stop_record();
+                                } else {
+                                    let timestamp = std::time::SystemTime::now()
+                                        .duration_since(std::time::UNIX_EPOCH)
+                                        .unwrap()
+                                        .as_secs();
+                                    match s.start_record(&format!("logs/csi_{}.rrd", timestamp)) {
+                                        Ok(_) => eprintln!("[Rerun] ✓ Recording started"),
+                                        Err(e) => eprintln!("[Rerun] ✗ Failed to start recording: {}", e),
+                                    }
+                                }
+                            }
+                        }
                         return Ok(true);
                     }
                     _ => return Ok(false),

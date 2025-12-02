@@ -55,6 +55,8 @@ pub struct RerunStreamer {
     #[cfg(feature = "rerun")]
     rr: Option<RecordingStream>,
     #[cfg(feature = "rerun")]
+    rrd_record: Option<RecordingStream>,
+    #[cfg(feature = "rerun")]
     heatmap: VecDeque<[f32; 64]>,
     
     app_id: String,
@@ -65,6 +67,8 @@ impl RerunStreamer {
         Self {
             #[cfg(feature = "rerun")]
             rr: None,
+            #[cfg(feature = "rerun")]
+            rrd_record: None,
             #[cfg(feature = "rerun")]
             heatmap: VecDeque::with_capacity(500),
             
@@ -102,64 +106,114 @@ impl RerunStreamer {
 
     pub fn push_csi(&mut self, csi: &CsiFrame) {
         #[cfg(feature = "rerun")]
-        if let Some(rec) = &self.rr {
-            rec.set_time_sequence("frame_idx", csi.timestamp as i64);
-
-            // 1. Bar Plot (Amplitude) -> "csi/bar_amplitude"
-            let _ = rec.log(
-                "csi/bar_amplitude",
-                &BarChart::new(csi.amplitude.to_vec()),
-            );
-
-            // 2. Heatmap -> "csi/heatmap"
+        {
+            // Update shared heatmap buffer once
             if self.heatmap.len() >= 500 {
                 self.heatmap.pop_front();
             }
             self.heatmap.push_back(csi.amplitude);
 
-            // Convert heatmap buffer to Image (u8 grayscale)
-            let height = self.heatmap.len();
-            let width = 64;
-            let mut img_data = Vec::with_capacity(width * height);
-            
-            // Normalize to 0-255
-            let max_val = self.heatmap.iter().flatten().fold(0.0f32, |a, &b| a.max(b));
-            let scale = if max_val > 0.0 { 255.0 / max_val } else { 0.0 };
+            // Helper closure to log to a specific stream
+            let log_to_stream = |rec: &RecordingStream| {
+                rec.set_time_sequence("frame_idx", csi.timestamp as i64);
 
-            for row in &self.heatmap {
-                for &val in row {
-                    img_data.push((val * scale) as u8);
+                // 1. Bar Plot (Amplitude) -> "csi/bar_amplitude"
+                let _ = rec.log(
+                    "csi/bar_amplitude",
+                    &BarChart::new(csi.amplitude.to_vec()),
+                );
+
+                // 2. Heatmap -> "csi/heatmap"
+                // Convert heatmap buffer to Image (u8 grayscale)
+                let height = self.heatmap.len();
+                let width = 64;
+                let mut img_data = Vec::with_capacity(width * height);
+                
+                // Normalize to 0-255
+                let max_val = self.heatmap.iter().flatten().fold(0.0f32, |a, &b| a.max(b));
+                let scale = if max_val > 0.0 { 255.0 / max_val } else { 0.0 };
+
+                for row in &self.heatmap {
+                    for &val in row {
+                        img_data.push((val * scale) as u8);
+                    }
                 }
+
+                let tensor_data = rerun::TensorData::new(
+                    vec![height as u64, width as u64],
+                    rerun::TensorBuffer::U8(img_data.into())
+                );
+
+                let _ = rec.log(
+                    "csi/heatmap",
+                    &Tensor::new(tensor_data),
+                );
+
+                // 3. 3D Scatter -> "csi/complex_scatter"
+                let positions: Vec<Position3D> = (0..64).map(|i| {
+                    Position3D::new(csi.real[i], csi.imag[i], csi.amplitude[i])
+                }).collect();
+
+                let colors: Vec<Color> = (0..64).map(|i| {
+                    // Map phase (-PI..PI) to 0..255
+                    let p = csi.phase[i];
+                    let norm = (p + std::f32::consts::PI) / (2.0 * std::f32::consts::PI);
+                    let c = (norm * 255.0).clamp(0.0, 255.0) as u8;
+                    Color::from_unmultiplied_rgba(c, 100, 255 - c, 255)
+                }).collect();
+
+                let _ = rec.log(
+                    "csi/complex_scatter",
+                    &Points3D::new(positions).with_colors(colors),
+                );
+            };
+
+            // Log to Live Stream
+            if let Some(rec) = &self.rr {
+                log_to_stream(rec);
             }
 
-            let tensor_data = rerun::TensorData::new(
-                vec![height as u64, width as u64],
-                rerun::TensorBuffer::U8(img_data.into())
-            );
-
-            let _ = rec.log(
-                "csi/heatmap",
-                &Tensor::new(tensor_data),
-            );
-
-            // 3. 3D Scatter -> "csi/complex_scatter"
-            let positions: Vec<Position3D> = (0..64).map(|i| {
-                Position3D::new(csi.real[i], csi.imag[i], csi.amplitude[i])
-            }).collect();
-
-            let colors: Vec<Color> = (0..64).map(|i| {
-                // Map phase (-PI..PI) to 0..255
-                let p = csi.phase[i];
-                let norm = (p + std::f32::consts::PI) / (2.0 * std::f32::consts::PI);
-                let c = (norm * 255.0).clamp(0.0, 255.0) as u8;
-                Color::from_unmultiplied_rgba(c, 100, 255 - c, 255)
-            }).collect();
-
-            let _ = rec.log(
-                "csi/complex_scatter",
-                &Points3D::new(positions).with_colors(colors),
-            );
+            // Log to RRD File
+            if let Some(rec) = &self.rrd_record {
+                log_to_stream(rec);
+            }
         }
+    }
+
+    pub fn start_record(&mut self, path: &str) -> Result<(), Box<dyn std::error::Error>> {
+        #[cfg(feature = "rerun")]
+        {
+            // Ensure parent directory exists
+            if let Some(parent) = std::path::Path::new(path).parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+
+            let rec = RecordingStreamBuilder::new(self.app_id.as_str())
+                .save(path)?;
+            
+            self.rrd_record = Some(rec);
+            eprintln!("[Rerun] ✓ Recording started to {}", path);
+            Ok(())
+        }
+        #[cfg(not(feature = "rerun"))]
+        {
+            Err("Rerun feature disabled".into())
+        }
+    }
+
+    pub fn stop_record(&mut self) {
+        #[cfg(feature = "rerun")]
+        if let Some(stream) = self.rrd_record.take() {
+            drop(stream); // Flushes on drop
+            eprintln!("[Rerun] Recording stopped");
+        }
+    }
+
+    pub fn is_recording(&self) -> bool {
+        #[cfg(feature = "rerun")]
+        return self.rrd_record.is_some();
+        #[cfg(not(feature = "rerun"))]
+        false
     }
 
     pub fn is_connected(&self) -> bool {
