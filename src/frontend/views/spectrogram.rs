@@ -103,23 +103,26 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect, is_focused: bool, id: usize) {
     }
 
     // 5. Render Canvas (Heatmap)
+    // Use the actual matrix height for bounds to ensure it fills the area or scales correctly
+    let height = matrix.len().max(1) as f64;
+
+    // Add padding for labels
+    let x_padding = 8.0;
+    let y_padding = 4.0;
+
     let canvas = Canvas::default()
         .block(block)
         .background_color(theme.root.bg.unwrap_or(Color::Reset))
-        .x_bounds([0.0, max_subcarriers as f64])
-        .y_bounds([0.0, WINDOW_SIZE as f64])
+        .x_bounds([-x_padding, max_subcarriers as f64 + x_padding])
+        .y_bounds([-y_padding, height + y_padding])
         .paint(move |ctx| {
             // Draw Heatmap
-            // Y=0 is oldest (bottom), Y=WINDOW is newest (top)
-            // Or usually Spectrograms scroll. Let's put newest at Top.
-
             for (t, row) in matrix.iter().enumerate() {
                 for (s, &val) in row.iter().enumerate() {
                     // Normalize value for color
                     // Max theoretical phase diff is PI.
-                    // In practice, small movements cause small shifts.
-                    // Let's saturate at PI/4 for visibility.
-                    let intensity = (val / (std::f64::consts::PI / 4.0)).clamp(0.0, 1.0);
+                    // Saturate at PI/2 for better visibility of subtle motions
+                    let intensity = (val / (std::f64::consts::PI / 2.0)).clamp(0.0, 1.0);
 
                     let color = if intensity > 0.8 {
                         Color::Red
@@ -135,8 +138,6 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect, is_focused: bool, id: usize) {
                         Color::DarkGray
                     };
 
-                    // Draw a "pixel" (rectangle)
-                    // Width = 1.0, Height = 1.0
                     if intensity > 0.05 {
                         ctx.draw(&Rectangle {
                             x: s as f64,
@@ -149,13 +150,36 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect, is_focused: bool, id: usize) {
                 }
             }
 
-            // Draw Axes Labels
-            ctx.print(0.0, -2.0, "Subcarrier Index");
-            ctx.print(-5.0, WINDOW_SIZE as f64 / 2.0, "Time");
+            // Draw Axes Labels & Ticks
+            let axis_color = Color::White;
 
-            // Draw Legend
-            ctx.print(0.0, WINDOW_SIZE as f64 + 1.0, "Color: Phase Velocity (Doppler)");
-        });
+            // X-Axis Ticks (Subcarriers)
+            for s in (0..=max_subcarriers).step_by(16) {
+                let x = s as f64;
+                ctx.print(x, -2.0, format!("{}", s));
+                ctx.draw(&ratatui::widgets::canvas::Line {
+                    x1: x, y1: -0.5,
+                    x2: x, y2: 0.5,
+                    color: axis_color,
+                });
+            }
+            ctx.print(max_subcarriers as f64 / 2.0 - 5.0, -3.5, "Subcarrier Index");
 
-    f.render_widget(canvas, area);
+            // Y-Axis Ticks (Time)
+            // Top is Newest (0ms ago), Bottom is Oldest
+            ctx.print(-x_padding + 1.0, height, "0ms");
+            ctx.print(-x_padding + 1.0, 0.0, format!("-{}pkts", height));
+
+            // DC Null Marker (Approximate center)
+            let dc_idx = max_subcarriers as f64 / 2.0;
+            ctx.print(dc_idx - 1.0, height + 1.0, "DC");
+            ctx.draw(&ratatui::widgets::canvas::Line {
+                x1: dc_idx, y1: 0.0,
+                x2: dc_idx, y2: height,
+                color: Color::DarkGray,
+            });
+
+            // Legend
+            ctx.print(max_subcarriers as f64 - 20.0, height + 2.0, "Color: Phase Delta (rad)");
+        });    f.render_widget(canvas, area);
 }
