@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use ratatui::layout::Rect;
 
 // Import internal modules via crate:: since we are in a submodule now
-use crate::config_manager;
+use crate::{config_manager, dataloader};
 use crate::frontend::layout_tree::TilingManager;
 use crate::frontend::theme::{Theme, ThemeType};
 use crate::frontend::view_state::ViewState;
@@ -57,6 +57,7 @@ pub struct App {
     pub start_time: Instant,
 
     pub pane_regions: RefCell<Vec<(usize, Rect)>>,
+    pub dataloader: crate::backend::dataloader::Dataloader
 }
 
 impl App {
@@ -90,6 +91,7 @@ impl App {
             fullscreen_pane_id: None,
             pane_states: HashMap::new(),
             should_quit: false,
+            dataloader: crate::backend::dataloader::Dataloader::new(),
 
             // Init Stats
             current_stats: NetworkStats { packet_count: 0, rssi: -90, pps: 0, snr: 0, timestamp: 0 },
