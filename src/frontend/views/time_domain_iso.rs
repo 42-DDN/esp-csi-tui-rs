@@ -153,11 +153,11 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect, is_focused: bool, id: usize) {
         Line::from(Span::styled("X: Delay | Y: Power | Z: Time", theme.text_normal)),
         Line::from(Span::styled("LOS: Left Edge (Delay 0)", theme.text_normal)),
     ];
-    
+
     let legend = Paragraph::new(legend_text)
         .alignment(Alignment::Left)
         .block(Block::default().padding(Padding::new(2, 0, 1, 0))); // Padding from border
-    
+
     f.render_widget(legend, area);
 
     let axis_label = Paragraph::new(Span::styled("Delay ->", theme.text_normal))
