@@ -89,7 +89,11 @@ fn draw_tree(f: &mut Frame, app: &App, node: &LayoutNode, area: Rect, path: Vec<
                     height: area.height,
                 },
             };
-            app.splitter_regions.borrow_mut().push((path.clone(), splitter_rect, *direction));
+            let container_size = match direction {
+                SplitDirection::Horizontal => area.width,
+                SplitDirection::Vertical => area.height,
+            };
+            app.splitter_regions.borrow_mut().push((path.clone(), splitter_rect, *direction, *ratio, container_size));
 
             for (i, child) in children.iter().enumerate() {
                 if let Some(chunk) = chunks.get(i) {

@@ -85,21 +85,17 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
                 MouseEventKind::Down(MouseButton::Left) => {
                     // Check Splitters
                     let splitters = app.splitter_regions.borrow();
-                    for (path, rect, dir) in splitters.iter() {
+                    for (path, rect, dir, ratio, container_size) in splitters.iter() {
                         let hit_x = mouse.column >= rect.x.saturating_sub(1) && mouse.column <= rect.x + rect.width + 1;
                         let hit_y = mouse.row >= rect.y.saturating_sub(1) && mouse.row <= rect.y + rect.height + 1;
 
                         if hit_x && hit_y {
-                            let size_approx = match dir {
-                                SplitDirection::Horizontal => 100,
-                                SplitDirection::Vertical => 50,
-                            };
                             app.drag_state = Some(crate::app::DragState {
                                 split_path: path.clone(),
-                                start_ratio: 50,
+                                start_ratio: *ratio,
                                 start_mouse_pos: (mouse.column, mouse.row),
                                 direction: *dir,
-                                container_size: size_approx,
+                                container_size: *container_size,
                             });
                             return Ok(true);
                         }
@@ -118,13 +114,16 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
                 },
                 MouseEventKind::Drag(MouseButton::Left) => {
                     if let Some(drag) = &mut app.drag_state {
-                        let delta = match drag.direction {
+                        let delta_pixels = match drag.direction {
                             SplitDirection::Horizontal => mouse.column as i32 - drag.start_mouse_pos.0 as i32,
                             SplitDirection::Vertical => mouse.row as i32 - drag.start_mouse_pos.1 as i32,
                         };
 
-                        app.tiling.adjust_split_ratio(&drag.split_path, delta as i16);
-                        drag.start_mouse_pos = (mouse.column, mouse.row);
+                        if drag.container_size > 0 {
+                            let delta_ratio = (delta_pixels as f32 / drag.container_size as f32 * 100.0) as i32;
+                            let new_ratio = (drag.start_ratio as i32 + delta_ratio).clamp(10, 90);
+                            app.tiling.set_split_ratio(&drag.split_path, new_ratio as u16);
+                        }
                         return Ok(true);
                     }
                 },

@@ -67,7 +67,7 @@ pub struct App {
     // Interaction Caches & Backend
     pub pane_regions: RefCell<Vec<(usize, Rect)>>,
     pub dataloader: Dataloader,
-    pub splitter_regions: RefCell<Vec<(Vec<usize>, Rect, crate::frontend::layout_tree::SplitDirection)>>,
+    pub splitter_regions: RefCell<Vec<(Vec<usize>, Rect, crate::frontend::layout_tree::SplitDirection, u16, u16)>>,
     pub drag_state: Option<crate::app::DragState>, // Re-using DragState struct definition or define here if moved
 }
 
