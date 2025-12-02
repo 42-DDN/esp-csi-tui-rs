@@ -1,6 +1,7 @@
-use ratatui::prelude::*;
-use ratatui::widgets::{Block, Borders};
-use ratatui::widgets::canvas::{Canvas, Line};
+// --- File: src/frontend/views/phase.rs ---
+// --- Purpose: Phase angle visualization over subcarriers (2D Chart) ---
+
+use ratatui::{prelude::*, widgets::*};
 use crate::App;
 
 pub fn draw(f: &mut Frame, app: &App, area: Rect, is_focused: bool, id: usize) {
@@ -9,148 +10,124 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect, is_focused: bool, id: usize) {
 
     let border_style = if is_focused { theme.focused_border } else { theme.normal_border };
 
-    let block = Block::default()
-        .title(format!(" #{} Phase (3D) ", id))
-        .borders(Borders::ALL)
-        .border_style(border_style)
-        .style(theme.root);
-
-    // 1. Determine Data Window
     let history_len = app.history.len();
+
+    // 1. Determine Status & Target Packet
+    let mut status_label = " [LIVE] ".to_string();
+    let mut status_style = Style::default().fg(Color::Green).add_modifier(Modifier::BOLD);
+    let mut target_index = history_len.saturating_sub(1);
+
+    if let Some(anchor) = state.anchor_packet_id {
+        if let Some(idx) = app.history.iter().position(|p| p.id == anchor) {
+            target_index = idx;
+            status_label = format!(" [REPLAY ID:{}] ", anchor);
+            status_style = Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD);
+        } else {
+            status_label = " [EXPIRED] ".to_string();
+            status_style = Style::default().fg(Color::Red);
+        }
+    }
+
+    // Handle empty history
     if history_len == 0 {
+        let block = Block::default()
+            .title(format!(" #{} Phase vs Subcarrier ", id))
+            .borders(Borders::ALL)
+            .border_style(border_style)
+            .style(theme.root);
         f.render_widget(block, area);
         return;
     }
 
-    // Find the end index based on anchor
-    let end_index = if let Some(anchor) = state.anchor_packet_id {
-        app.history.iter().position(|p| p.id == anchor).unwrap_or(history_len - 1)
-    } else {
-        history_len - 1
-    };
+    let stats = &app.history[target_index];
 
-    // How many packets to show?
-    let window_size = 30;
-    let start_index = end_index.saturating_sub(window_size);
-    let data_slice = &app.history[start_index..=end_index];
+    // 2. Calculate Adaptive Max Subcarriers (Decaying Peak)
+    // Simulate a peak detector over recent history to smooth axis transitions
+    let lookback = 150;
+    let start_scan = target_index.saturating_sub(lookback);
+    let mut adaptive_max = 64.0;
+    let decay_rate = 0.98; // Slow decay
 
-    // 2. Setup Canvas
-    let canvas_x_bound = 100.0;
-    let canvas_y_bound = 100.0;
-
-    let canvas = Canvas::default()
-        .block(block)
-        .x_bounds([-canvas_x_bound, canvas_x_bound])
-        .y_bounds([-canvas_y_bound, canvas_y_bound])
-        .paint(|ctx| {
-            let scale = 2.0 * state.zoom;
-            let offset_x = state.camera_x;
-            let offset_y = state.camera_y;
-
-            // Projection Function (Isometric-ish)
-            let project = |x: f64, y: f64, z: f64| -> (f64, f64) {
-                let iso_x = x - y;
-                let iso_y = (x + y) * 0.5 - z;
-                (iso_x * scale + offset_x, iso_y * scale + offset_y)
-            };
-
-            // --- Draw Axes ---
-            // Define bounds in 3D space
-            // Time: [-window_size/2, window_size/2] * 2.0
-            // Subcarrier: [-num_subcarriers/2, num_subcarriers/2] * 1.0
-            // Phase: [-PI, PI] * 5.0
-
-            // We need to know num_subcarriers to draw the box correctly.
-            // We'll guess based on the first packet or default to 64 if empty.
-            let num_subcarriers = data_slice.first()
-                .and_then(|s| s.csi.as_ref())
+    for i in start_scan..=target_index {
+        if let Some(packet) = app.history.get(i) {
+            let current_count = packet.csi.as_ref()
                 .map(|c| c.csi_raw_data.len() / 2)
-                .unwrap_or(64);
+                .unwrap_or(64) as f64;
 
-            let t_max = (window_size as f64 / 2.0) * 2.0;
-            let t_min = -t_max;
-            let s_max = (num_subcarriers as f64 / 2.0) * 1.0;
-            let s_min = -s_max;
-            let p_max = std::f64::consts::PI * 5.0;
-            let p_min = -p_max;
-
-            // Axis Lines
-            let axes = [
-                // Time Axis (along X)
-                ((t_min, s_min, p_min), (t_max, s_min, p_min), Color::Red),
-                // Subcarrier Axis (along Y)
-                ((t_min, s_min, p_min), (t_min, s_max, p_min), Color::Green),
-                // Phase Axis (along Z)
-                ((t_min, s_min, p_min), (t_min, s_min, p_max), Color::Yellow),
-            ];
-
-            for ((x1, y1, z1), (x2, y2, z2), color) in axes {
-                let (sx1, sy1) = project(x1, y1, z1);
-                let (sx2, sy2) = project(x2, y2, z2);
-                ctx.draw(&Line { x1: sx1, y1: sy1, x2: sx2, y2: sy2, color });
-            }
-
-            // Labels
-            let (tx, ty) = project(t_max + 5.0, s_min, p_min);
-            ctx.print(tx, ty, "Time");
-
-            let (sx, sy) = project(t_min, s_max + 5.0, p_min);
-            ctx.print(sx, sy, "Subcarrier");
-
-            let (px, py) = project(t_min, s_min, p_max + 5.0);
-            ctx.print(px, py, "Phase");
-
-
-            // --- Draw Data ---
-            // grid[time_idx][subcarrier_idx] = (screen_x, screen_y)
-            let mut grid: Vec<Vec<(f64, f64)>> = Vec::new();
-
-            for (t_idx, stats) in data_slice.iter().enumerate() {
-                let mut row_points = Vec::new();
-                if let Some(csi) = &stats.csi {
-                    let current_subcarriers = csi.csi_raw_data.len() / 2;
-
-                    for s_idx in 0..current_subcarriers {
-                        let i_val = csi.csi_raw_data.get(s_idx * 2).copied().unwrap_or(0) as f64;
-                        let q_val = csi.csi_raw_data.get(s_idx * 2 + 1).copied().unwrap_or(0) as f64;
-                        let phase = q_val.atan2(i_val); // -PI to PI
-
-                        // Map to 3D Space
-                        let x = (t_idx as f64 - window_size as f64 / 2.0) * 2.0;
-                        let y = (s_idx as f64 - num_subcarriers as f64 / 2.0) * 1.0;
-                        let z = phase * 5.0;
-
-                        row_points.push(project(x, y, z));
-                    }
-                }
-                grid.push(row_points);
-            }
-
-            // Draw Wireframe
-            for t in 0..grid.len() {
-                for s in 0..grid[t].len() {
-                    let (x1, y1) = grid[t][s];
-
-                    // Draw line to next time step (Time evolution)
-                    if t + 1 < grid.len() && s < grid[t+1].len() {
-                        let (x2, y2) = grid[t+1][s];
-                        ctx.draw(&Line {
-                            x1, y1, x2, y2,
-                            color: Color::Cyan,
-                        });
-                    }
-
-                    // Draw line to next subcarrier (Frequency evolution)
-                    if s + 1 < grid[t].len() {
-                        let (x2, y2) = grid[t][s+1];
-                        ctx.draw(&Line {
-                            x1, y1, x2, y2,
-                            color: Color::Blue,
-                        });
-                    }
+            // Peak detector logic: Jump up immediately, decay down slowly
+            if current_count > adaptive_max {
+                adaptive_max = current_count;
+            } else {
+                adaptive_max = adaptive_max * decay_rate;
+                // Never decay below the current packet's width (or 64)
+                let min_width = current_count.max(64.0);
+                if adaptive_max < min_width {
+                    adaptive_max = min_width;
                 }
             }
-        });
+        }
+    }
 
-    f.render_widget(canvas, area);
+    let mut data_points: Vec<(f64, f64)> = Vec::new();
+
+    if let Some(csi) = &stats.csi {
+        let num_subcarriers = csi.csi_raw_data.len() / 2;
+        for s_idx in 0..num_subcarriers {
+            let i_val = csi.csi_raw_data.get(s_idx * 2).copied().unwrap_or(0) as f64;
+            let q_val = csi.csi_raw_data.get(s_idx * 2 + 1).copied().unwrap_or(0) as f64;
+            let phase = q_val.atan2(i_val); // -PI to PI
+            data_points.push((s_idx as f64, phase));
+        }
+    }
+
+    // 3. Build Block with Status & Timestamp
+    let title_top = Line::from(vec![
+        Span::styled(format!(" #{} Phase per Subcarrier ", id), theme.text_normal),
+        Span::styled(status_label, status_style),
+    ]);
+
+    let timestamp_text = format!(" Time: {}ms ", stats.timestamp);
+    let title_bottom = Line::from(Span::styled(timestamp_text, theme.text_highlight));
+
+    let block = Block::default()
+        .title(title_top)
+        .title_bottom(title_bottom.alignment(Alignment::Right))
+        .borders(Borders::ALL)
+        .border_style(border_style)
+        .style(theme.root);
+
+    // Create Dataset
+    let datasets = vec![
+        Dataset::default()
+            .name("") // Empty name to hide legend text
+            .marker(symbols::Marker::Braille)
+            .style(Style::default().fg(theme.gauge_color))
+            .graph_type(GraphType::Line)
+            .data(&data_points),
+    ];
+
+    // Create Chart
+    let chart = Chart::new(datasets)
+        .block(block)
+        .style(theme.root)
+        .x_axis(Axis::default()
+            .title("Subcarrier")
+            .style(theme.text_normal)
+            .bounds([0.0, adaptive_max])
+            .labels(vec![
+                Span::styled("0", theme.text_normal),
+                Span::styled(format!("{:.0}", adaptive_max / 2.0), theme.text_normal),
+                Span::styled(format!("{:.0}", adaptive_max), theme.text_normal),
+            ]))
+        .y_axis(Axis::default()
+            .title("Phase (rad)")
+            .style(theme.text_normal)
+            .bounds([-3.2, 3.2]) // Slightly larger than PI
+            .labels(vec![
+                Span::styled("-π", theme.text_normal),
+                Span::styled("0", theme.text_normal),
+                Span::styled("+π", theme.text_normal),
+            ]));
+
+    f.render_widget(chart, area);
 }
