@@ -12,11 +12,13 @@ impl Dataloader {
         }
     }
 
-    pub fn get_data_packet(&mut self, idx: usize) -> Option<CsiData> {
-        // if idx >= self.data.len() {
-        //     self.data.push(None);
-        // }
-        self.data.get(idx).cloned().flatten()
+    pub fn get_data_packet(&mut self, idx: usize) -> CsiData {
+        if idx >= self.data.len() {
+            let zero = CsiData::default();
+            self.data.push(Some(zero.clone()));
+            return zero;
+        }
+        self.data.get(idx).cloned().flatten().unwrap_or_default()
     }
 
     pub fn push_data_packet(&mut self, packet: CsiData) {
