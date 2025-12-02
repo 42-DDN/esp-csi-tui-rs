@@ -3,6 +3,8 @@
 
 use super::csi_data::CsiData;
 use std::collections::VecDeque;
+use std::error::Error;
+use std::fs::File;
 
 pub struct Dataloader {
     // Changed from random-access Vec to a Queue
@@ -30,7 +32,16 @@ impl Dataloader {
         self.queue.drain(..).collect()
     }
 
-    pub fn export_history(&self) -> &Vec<CsiData> {
-        &self.history
+    /// Exports the entire history of CsiData to a CSV file.
+    pub fn export_history_to_csv(&self, filename: &str) -> Result<(), Box<dyn Error>> {
+        let file = File::create(filename)?;
+        let mut wtr = csv::Writer::from_writer(file);
+
+        for data in &self.history {
+            wtr.serialize(data)?;
+        }
+
+        wtr.flush()?;
+        Ok(())
     }
 }
