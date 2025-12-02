@@ -1,11 +1,10 @@
-// --- File: src/frontend/layout_tree.rs ---
+// --- File: src/layout_tree.rs ---
 // --- Purpose: Defines the Tiling Window Manager (TWM) logic, pane splitting, and focus management ---
 
 use ratatui::prelude::*;
 use serde::{Serialize, Deserialize};
-use crate::theme::ThemeType;
+use crate::frontend::theme::ThemeType;
 
-// Local Direction enum to ensure Serde compatibility
 #[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub enum SplitDirection {
     Horizontal,
@@ -46,7 +45,6 @@ impl ViewType {
     }
 }
 
-// The Tree Node
 #[derive(Clone, Serialize, Deserialize)]
 pub enum LayoutNode {
     Pane {
@@ -60,7 +58,39 @@ pub enum LayoutNode {
     },
 }
 
-// The Manager
+impl LayoutNode {
+    pub fn set_ratio_recursive(&mut self, path: &[usize], new_ratio: u16) {
+        if path.is_empty() {
+            if let LayoutNode::Split { ratio, .. } = self {
+                *ratio = new_ratio.clamp(10, 90);
+            }
+            return;
+        }
+        if let LayoutNode::Split { children, .. } = self {
+            let child_idx = path[0];
+            if let Some(child) = children.get_mut(child_idx) {
+                child.set_ratio_recursive(&path[1..], new_ratio);
+            }
+        }
+    }
+
+    pub fn adjust_ratio_recursive(&mut self, path: &[usize], delta: i16) {
+        if path.is_empty() {
+            if let LayoutNode::Split { ratio, .. } = self {
+                let new_ratio = (*ratio as i16 + delta).clamp(10, 90);
+                *ratio = new_ratio as u16;
+            }
+            return;
+        }
+        if let LayoutNode::Split { children, .. } = self {
+            let child_idx = path[0];
+            if let Some(child) = children.get_mut(child_idx) {
+                child.adjust_ratio_recursive(&path[1..], delta);
+            }
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct TilingManager {
     pub root: LayoutNode,
@@ -70,7 +100,6 @@ pub struct TilingManager {
     #[serde(default)]
     pub is_default: bool,
 
-    // Store the theme in the template
     #[serde(default)]
     pub theme_variant: Option<ThemeType>,
 }
@@ -82,8 +111,16 @@ impl TilingManager {
             focused_pane_id: 1,
             next_id: 2,
             is_default: false,
-            theme_variant: None, // Default to whatever App sets if missing
+            theme_variant: None,
         }
+    }
+
+    pub fn set_split_ratio(&mut self, path: &[usize], ratio: u16) {
+        self.root.set_ratio_recursive(path, ratio);
+    }
+
+    pub fn adjust_split_ratio(&mut self, path: &[usize], delta: i16) {
+        self.root.adjust_ratio_recursive(path, delta);
     }
 
     pub fn split(&mut self, direction: Direction) {

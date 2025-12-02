@@ -26,7 +26,7 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
         Row::new(vec![" Delete", " Close Pane"]),
         Row::new(vec![" Tab / Click", " Focus Pane"]),
         Row::new(vec![" Space", " Toggle Fullscreen"]),
-        Row::new(vec![" Drag Divider", " Resize Panes"]), // Added Dragging info
+        Row::new(vec![" Drag Divider", " Resize Panes"]),
         Row::new(vec!["", ""]),
 
         // Section: Playback
@@ -62,7 +62,6 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(table, area);
 }
 
-// Utility to center a rect (Public so other overlays can use it)
 pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
     let popup_layout = Layout::default()
         .direction(Direction::Vertical)

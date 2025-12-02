@@ -6,9 +6,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use ratatui::layout::Rect;
 
-// Internal Imports
 use crate::config_manager;
-use crate::frontend::layout_tree::TilingManager;
+use crate::frontend::layout_tree::{TilingManager, SplitDirection};
 use crate::frontend::theme::{Theme, ThemeType};
 use crate::frontend::view_state::ViewState;
 use crate::backend::csi_data::CsiData;
@@ -26,6 +25,15 @@ pub struct NetworkStats {
     pub csi: Option<CsiData>,
 }
 
+// State for resizing operation
+pub struct DragState {
+    pub split_path: Vec<usize>,
+    pub start_ratio: u16,
+    pub start_mouse_pos: (u16, u16),
+    pub direction: SplitDirection,
+    pub container_size: u16,
+}
+
 pub struct App {
     pub tiling: TilingManager,
     pub theme: Theme,
@@ -38,11 +46,9 @@ pub struct App {
     pub show_main_menu: bool,
     pub main_menu_index: usize,
 
-    // Theme Selector (NEW)
     pub show_theme_selector: bool,
     pub theme_selector_index: usize,
 
-    // Template System State
     pub show_save_input: bool,
     pub input_buffer: String,
 
@@ -50,23 +56,23 @@ pub struct App {
     pub load_selector_index: usize,
     pub available_templates: Vec<(String, bool)>,
 
-    // Fullscreen & Playback State
     pub fullscreen_pane_id: Option<usize>,
     pub pane_states: HashMap<usize, ViewState>,
 
     pub should_quit: bool,
 
-    // Data & History
     pub current_stats: NetworkStats,
     pub history: Vec<NetworkStats>,
     pub start_time: Instant,
 
+    // Interaction Caches
     pub pane_regions: RefCell<Vec<(usize, Rect)>>,
+    pub splitter_regions: RefCell<Vec<(Vec<usize>, Rect, SplitDirection)>>,
+    pub drag_state: Option<DragState>,
 }
 
 impl App {
     pub fn new() -> Self {
-        // Load default template and theme if available
         let (tiling, theme) = if let Some(tm) = config_manager::load_startup_template() {
             let loaded_theme = if let Some(variant) = tm.theme_variant {
                 Theme::new(variant)
@@ -87,10 +93,8 @@ impl App {
             view_selector_index: 0,
             show_main_menu: false,
             main_menu_index: 0,
-
             show_theme_selector: false,
-            theme_selector_index: 0,   
-
+            theme_selector_index: 0,
             show_save_input: false,
             input_buffer: String::new(),
             show_load_selector: false,
@@ -105,6 +109,8 @@ impl App {
             start_time: Instant::now(),
 
             pane_regions: RefCell::new(Vec::new()),
+            splitter_regions: RefCell::new(Vec::new()),
+            drag_state: None,
         }
     }
 

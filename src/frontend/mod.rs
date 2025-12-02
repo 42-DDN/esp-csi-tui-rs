@@ -4,8 +4,8 @@
 pub mod layout_tree;
 pub mod theme;
 pub mod view_router;
-pub mod view_traits; // <--- Added
-pub mod view_state;  // <--- Added
+pub mod view_traits;
+pub mod view_state;
 
 pub mod views;
 pub mod overlays;

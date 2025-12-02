@@ -45,7 +45,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     loop {
         // 1. Render Layer
         // Always draw. This ensures UI responsiveness and simplifies the state logic.
-        // Ratatui's double-buffering makes this efficient enough.
         terminal.draw(|f| view_router::ui(f, &app))?;
 
         // 2. Input Layer
@@ -61,8 +60,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Loop while events are available AND we haven't spent too long (20ms) processing them.
             // Using poll(0) ensures we only process events that are ALREADY in the queue.
             while event::poll(Duration::from_millis(0))? && start.elapsed() < Duration::from_millis(20) {
-                // We don't care if it returns true/false here, just consume it.
-                // If it was a valid key, state updates. If invalid, we just consume the event.
+                // Consume the event.
                 let _ = input_handler::handle_event(&mut app)?;
 
                 if app.should_quit {
