@@ -91,7 +91,7 @@ pub struct DragState {
 }
 
 impl App {
-    pub fn new(rerun_addr: Option<String>) -> Self {
+    pub fn new(rerun_addr: Option<String>, csv_file: Option<String>) -> Self {
         let (tiling, theme) = if let Some(tm) = config_manager::load_startup_template() {
             let loaded_theme = if let Some(variant) = tm.theme_variant {
                 Theme::new(variant)
@@ -103,7 +103,7 @@ impl App {
             (TilingManager::new(), Theme::new(ThemeType::Dark))
         };
 
-        let app = Self {
+        let mut app = Self {
             tiling,
             theme,
             show_help: false,
@@ -147,6 +147,59 @@ impl App {
             drag_state: None,
             rerun_streamer: Some(crate::rerun_stream::create_shared_streamer()),
         };
+
+        // Load CSV if provided
+        if let Some(path) = csv_file {
+            if let Err(e) = app.dataloader.import_history_from_csv(&path) {
+                eprintln!("Failed to load CSV: {}", e);
+            } else {
+                // Populate App::history from dataloader.history
+                let mut previous_grid = [[0.0; 24]; 24];
+                let mut id_counter = 0;
+
+                for csi in &app.dataloader.history {
+                    id_counter += 1;
+                    let snr = csi.rssi - csi.noise_floor;
+
+                    // Calculate Grid
+                    let mut grid = previous_grid;
+                    const GRID_SIZE: usize = 24;
+                    const MIN_VAL: f64 = -128.0;
+                    const MAX_VAL: f64 = 128.0;
+                    const BIN_WIDTH: f64 = (MAX_VAL - MIN_VAL) / GRID_SIZE as f64;
+
+                    let sc_count = csi.csi_raw_data.len() / 2;
+                    for s in 0..sc_count {
+                        let i_val = csi.csi_raw_data.get(s * 2).copied().unwrap_or(0) as f64;
+                        let q_val = csi.csi_raw_data.get(s * 2 + 1).copied().unwrap_or(0) as f64;
+
+                        let bx = ((i_val - MIN_VAL) / BIN_WIDTH).floor() as usize;
+                        let by = ((q_val - MIN_VAL) / BIN_WIDTH).floor() as usize;
+
+                        if bx < GRID_SIZE && by < GRID_SIZE {
+                            grid[bx][by] += 1.0;
+                        }
+                    }
+                    previous_grid = grid;
+
+                    let stat = NetworkStats {
+                        id: id_counter,
+                        rssi: csi.rssi,
+                        pps: 0, // Static file
+                        snr,
+                        timestamp: csi.timestamp,
+                        csi: Some(csi.clone()),
+                        distribution_grid: grid,
+                    };
+                    app.history.push(stat);
+                }
+
+                // Set current stats to last one
+                if let Some(last) = app.history.last() {
+                    app.current_stats = last.clone();
+                }
+            }
+        }
 
         if let Some(addr) = rerun_addr {
             if let Some(ref streamer) = app.rerun_streamer {

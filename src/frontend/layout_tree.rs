@@ -51,7 +51,7 @@ impl ViewType {
     }
 
     pub fn is_temporal(&self) -> bool {
-        matches!(self, ViewType::Isometric | ViewType::Spectrogram | ViewType::Phase | ViewType::RawScatter | ViewType::Polar)
+        matches!(self, ViewType::Isometric | ViewType::Spectrogram | ViewType::Phase | ViewType::RawScatter | ViewType::Polar | ViewType::Dashboard)
     }
 }
 

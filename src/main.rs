@@ -33,14 +33,18 @@ pub use frontend::overlays::{help, options, quit, view_selector, main_menu, save
 pub use backend::dataloader;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Parse CLI args for --rerun <addr>
+    // Parse CLI args for --rerun <addr> and optional CSV file
     let args: Vec<String> = std::env::args().collect();
     let mut rerun_addr = None;
+    let mut csv_file = None;
     let mut i = 1;
     while i < args.len() {
         if args[i] == "--rerun" && i + 1 < args.len() {
             rerun_addr = Some(args[i+1].clone());
             i += 2;
+        } else if args[i].ends_with(".csv") {
+            csv_file = Some(args[i].clone());
+            i += 1;
         } else {
             i += 1;
         }
@@ -49,15 +53,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = config_manager::init();
 
     // 1. Wrap App in Arc<Mutex<>> to allow sharing across threads
-    let app = Arc::new(Mutex::new(App::new(rerun_addr)));
+    let app = Arc::new(Mutex::new(App::new(rerun_addr, csv_file.clone())));
 
     // 2. Clone the reference for the background thread
     let app_access = Arc::clone(&app);
 
-    // TODO: Create src/esp_com.rs if you haven't already, or comment this block out
-    thread::spawn(move || {
-        esp_com::esp_com(app_access);
-    });
+    // Only spawn ESP com if NO CSV file
+    if csv_file.is_none() {
+        thread::spawn(move || {
+            esp_com::esp_com(app_access);
+        });
+    }
 
     enable_raw_mode()?;
     let mut stdout = io::stdout();
