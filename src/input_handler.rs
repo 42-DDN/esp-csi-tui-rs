@@ -87,7 +87,20 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
                     _ => return Ok(false),
                 }
             } else {
+                let focused_id = app.tiling.focused_pane_id;
+                let current_view_type = get_view_type_for_pane(app, focused_id);
+                let current_live_id = app.current_stats.id;
+                let min_id = app.history.first().map(|p| p.id).unwrap_or(0);
+
                 match key.code {
+                    KeyCode::Left if current_view_type.is_temporal() => {
+                        app.get_pane_state_mut(focused_id).step_back(current_live_id, min_id);
+                        return Ok(true);
+                    }
+                    KeyCode::Right if current_view_type.is_temporal() => {
+                        app.get_pane_state_mut(focused_id).step_forward(current_live_id, min_id);
+                        return Ok(true);
+                    }
                     KeyCode::Char('q') => { app.show_quit_popup = true; return Ok(true); }
                     KeyCode::Char('h') => { app.show_help = !app.show_help; return Ok(true); }
                     KeyCode::Char('m') => { app.show_main_menu = !app.show_main_menu; return Ok(true); }
