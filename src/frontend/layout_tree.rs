@@ -29,6 +29,7 @@ pub enum ViewType {
     Spectrogram,
     Phase,
     Camera,
+    RawScatter,
 }
 
 impl ViewType {
@@ -41,6 +42,7 @@ impl ViewType {
             ViewType::Spectrogram => "Spectrogram",
             ViewType::Phase => "Phase Plot",
             ViewType::Camera => "Camera Feed",
+            ViewType::RawScatter => "Multipath Scatter",
         }
     }
 }

@@ -137,7 +137,7 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect, is_focused: bool, id: usize) {
                 // Color Logic: Heatmap Fade
                 // Calculate normalized position (0.0 = Oldest, 1.0 = Newest)
                 let normalized_age = t as f64 / (grid.len() - 1) as f64;
-                
+
                 // Interpolate color based on age
                 // Newest: Theme Gauge Color (e.g., Cyan/Magenta)
                 // Middle: Yellow/Green

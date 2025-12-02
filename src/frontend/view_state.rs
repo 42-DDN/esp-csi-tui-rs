@@ -62,5 +62,20 @@ impl ViewState {
     pub fn move_camera(&mut self, dx: f64, dy: f64) {
         self.camera_x += dx;
         self.camera_y += dy;
+
+        // Clamp Tilt (Y) to match visual limits in raw_scatter.rs
+        // Visual: elevation = PI/4 - (y * 0.05) clamped to [0.1, PI/2 - 0.1]
+        // Limits: y approx +/- 13.7
+        self.camera_y = self.camera_y.clamp(-14.0, 14.0);
+
+        // Wrap Rotation (X) to keep values sane
+        // Visual: azimuth = PI/4 + x * 0.1
+        // Period: 2*PI / 0.1 = 20*PI approx 62.83
+        let period = 20.0 * std::f64::consts::PI;
+        if self.camera_x > period {
+            self.camera_x -= period;
+        } else if self.camera_x < -period {
+            self.camera_x += period;
+        }
     }
 }

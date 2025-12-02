@@ -13,7 +13,8 @@ impl ViewBehavior for ViewType {
         match self {
             ViewType::Dashboard |
             ViewType::Spectrogram |
-            ViewType::Phase => true,
+            ViewType::Phase |
+            ViewType::RawScatter => true,
             _ => false,
         }
     }
@@ -22,7 +23,8 @@ impl ViewBehavior for ViewType {
         match self {
             ViewType::Polar |
             ViewType::Isometric |
-            ViewType::Phase => true,
+            ViewType::Phase |
+            ViewType::RawScatter => true,
             _ => false,
         }
     }
