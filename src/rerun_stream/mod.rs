@@ -91,16 +91,9 @@ impl RerunStreamer {
                 .connect_grpc_opts(target.clone());
             
             match rec {
-                Ok(r) => {
-                    self.rr = Some(r);
-                    eprintln!("[Rerun] ✓ Connected to {}", target);
-                }
-                Err(e) => eprintln!("[Rerun] ✗ Failed to connect: {}", e),
+                Ok(r) => {self.rr = Some(r);},
+                Err(_e) => {}
             }
-        }
-        #[cfg(not(feature = "rerun"))]
-        {
-            eprintln!("[Rerun] Feature disabled. Recompile with --features rerun");
         }
     }
 
@@ -192,7 +185,6 @@ impl RerunStreamer {
                 .save(path)?;
             
             self.rrd_record = Some(rec);
-            eprintln!("[Rerun] ✓ Recording started to {}", path);
             Ok(())
         }
         #[cfg(not(feature = "rerun"))]
@@ -205,7 +197,6 @@ impl RerunStreamer {
         #[cfg(feature = "rerun")]
         if let Some(stream) = self.rrd_record.take() {
             drop(stream); // Flushes on drop
-            eprintln!("[Rerun] Recording stopped");
         }
     }
 
@@ -227,7 +218,6 @@ impl RerunStreamer {
         #[cfg(feature = "rerun")]
         {
             self.rr = None;
-            eprintln!("[Rerun] Disconnected");
         }
     }
 }

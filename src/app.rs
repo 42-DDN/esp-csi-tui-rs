@@ -12,7 +12,6 @@ use crate::frontend::layout_tree::TilingManager;
 use crate::frontend::theme::{Theme, ThemeType};
 use crate::frontend::view_state::ViewState;
 use crate::backend::csi_data::CsiData;
-use crate::layout_tree::SplitDirection;
 use crate::rerun_stream::SharedRerunStreamer;
 
 // We store fewer packets because we are storing averages now.

@@ -13,10 +13,17 @@ pub fn esp_com(app: Arc<Mutex<App>>) {
     // mock_esp_com(app);
 
     // Real ESP implementation
-    let port_name = "/dev/ttyUSB0";
+    let ports = serialport::available_ports().unwrap_or_default();
+    
+    // Find first USB port, or fallback to default /dev/ttyUSB0
+    let port_name = ports.iter()
+        .find(|p| matches!(p.port_type, serialport::SerialPortType::UsbPort(_)))
+        .map(|p| p.port_name.clone())
+        .unwrap_or_else(|| "/dev/ttyUSB0".to_string());
+
     let baud_rate = 115200;
 
-    let port = serialport::new(port_name, baud_rate)
+    let port = serialport::new(&port_name, baud_rate)
         .timeout(Duration::from_millis(1000))
         .open();
 
@@ -39,7 +46,7 @@ pub fn esp_com(app: Arc<Mutex<App>>) {
                         Err(ref e) if e.kind() == io::ErrorKind::TimedOut => {
                             continue;
                         }
-                        Err(e) => {}
+                        Err(_e) => {}
                     }
                 }
 
@@ -64,14 +71,13 @@ pub fn esp_com(app: Arc<Mutex<App>>) {
                 }
             }
         }
-        Err(e) => {}
+        Err(_e) => {}
     }
 }
 
 pub fn mock_esp_com(app: Arc<Mutex<App>>) {
     let file_path = "example_data.mock";
     let content = std::fs::read_to_string(file_path).unwrap_or_else(|_| {
-        eprintln!("Failed to read mock data file: {}", file_path);
         String::new()
     });
 
@@ -94,7 +100,6 @@ pub fn mock_esp_com(app: Arc<Mutex<App>>) {
     }
 
     if packets.is_empty() {
-        eprintln!("No valid packets found in mock data.");
         return;
     }
 

@@ -3,10 +3,6 @@ name = "project"
 version = "0.1.0"
 edition = "2024"
 
-[lib]
-name = "project"
-path = "src/main.rs"
-
 [dependencies]
 crossterm = "0.29.0"
 ratatui = { version = "0.29.0", default-features = false, features = ["crossterm"] }
@@ -20,3 +16,8 @@ csv = "1.4.0"
 [features]
 default = ["rerun"]
 rerun = ["dep:rerun"]
+
+[[bin]]
+
+name = "esp-csi-tui-rs"
+path = "src/main.rs"
