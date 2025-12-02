@@ -45,13 +45,32 @@ pub fn ui(f: &mut Frame, app: &App) {
 }
 
 fn draw_header(f: &mut Frame, app: &App, area: Rect) {
+    // Build status indicators
+    let mut status_parts = Vec::new();
+    
+    // Rerun status
+    if let Some(ref streamer) = app.rerun_streamer {
+        if let Ok(s) = streamer.lock() {
+            if s.is_streaming() {
+                status_parts.push(Span::styled(" 🔴LIVE ", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)));
+            }
+            if s.is_recording() {
+                status_parts.push(Span::styled(" ⏺REC ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)));
+            }
+        }
+    }
+    
     let hotkeys = if app.fullscreen_pane_id.is_some() {
         " [Space] Exit Fullscreen | [Arrows] Playback | [WASD] Move Camera | [R] Reset Live | [Q] Quit "
     } else {
-        " [Shift+Arrow] Split | [Del] Close | [Drag] Resize | [0-9] Focus | [Enter] View | [M] Menu | [Q] Quit "
+        " [Shift+Arrow] Split | [Del] Close | [Drag] Resize | [0-9] Focus | [Enter] View | [M] Menu | [Shift+R] Stream | [Shift+L] Record "
     };
 
-    let header = Paragraph::new(hotkeys)
+    // Combine status and hotkeys
+    let mut line_spans = status_parts;
+    line_spans.push(Span::raw(hotkeys));
+    
+    let header = Paragraph::new(Line::from(line_spans))
         .style(Style::default().bg(Color::DarkGray).fg(Color::White).add_modifier(Modifier::BOLD))
         .alignment(Alignment::Center);
     f.render_widget(header, area);

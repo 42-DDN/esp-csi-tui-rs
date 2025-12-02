@@ -18,7 +18,7 @@ pub mod frontend;
 pub mod backend;
 pub mod config_manager;
 pub mod esp_com;
-// pub mod esp_com; // Uncomment if you have this file created
+pub mod rerun_stream;
 
 // 2. Re-exports
 pub use app::{App, NetworkStats};

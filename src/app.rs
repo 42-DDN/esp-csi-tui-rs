@@ -12,6 +12,7 @@ use crate::frontend::layout_tree::{TilingManager, SplitDirection};
 use crate::frontend::theme::{Theme, ThemeType};
 use crate::frontend::view_state::ViewState;
 use crate::backend::csi_data::CsiData;
+use crate::rerun_stream::SharedRerunStreamer;
 
 pub const MAX_HISTORY_SIZE: usize = 10000;
 
@@ -70,6 +71,9 @@ pub struct App {
     pub dataloader: Dataloader,
     pub splitter_regions: RefCell<Vec<(Vec<usize>, Rect, SplitDirection)>>,
     pub drag_state: Option<DragState>,
+    
+    // Rerun Integration
+    pub rerun_streamer: Option<SharedRerunStreamer>,
 }
 
 impl App {
@@ -113,6 +117,7 @@ impl App {
             pane_regions: RefCell::new(Vec::new()),
             splitter_regions: RefCell::new(Vec::new()),
             drag_state: None,
+            rerun_streamer: Some(crate::rerun_stream::create_shared_streamer()),
         }
     }
 
