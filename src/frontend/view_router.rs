@@ -19,6 +19,7 @@ pub fn ui(f: &mut Frame, app: &App) {
         .constraints([
             Constraint::Length(1), // Header
             Constraint::Min(0),    // Tiling Area
+            Constraint::Length(1), // Footer
         ])
         .split(f.area());
 
@@ -34,7 +35,10 @@ pub fn ui(f: &mut Frame, app: &App) {
         draw_tree(f, app, &app.tiling.root, chunks[1], Vec::new());
     }
 
-    // 4. Draw Overlays
+    // 4. Draw Footer
+    draw_footer(f, app, chunks[2]);
+
+    // 5. Draw Overlays
     if app.show_help { help::draw(f, app, f.area()); }
     if app.show_view_selector { view_selector::draw(f, app, f.area()); }
     if app.show_main_menu { main_menu::draw(f, app, f.area()); }
@@ -51,10 +55,29 @@ fn draw_header(f: &mut Frame, app: &App, area: Rect) {
         " [Shift+Arrow] Split | [Del] Close | [Drag] Resize | [0-9] Focus | [Enter] View | [M] Menu | [Q] Quit "
     };
 
+    // Use theme colors for the header
+    // Background: Normal Border Color (usually a muted gray)
+    // Foreground: Root Text Color (usually high contrast against background)
+    let bg_color = app.theme.normal_border.fg.unwrap_or(Color::DarkGray);
+    let fg_color = app.theme.root.fg.unwrap_or(Color::White);
+
     let header = Paragraph::new(hotkeys)
-        .style(Style::default().bg(Color::DarkGray).fg(Color::White).add_modifier(Modifier::BOLD))
+        .style(Style::default().bg(bg_color).fg(fg_color).add_modifier(Modifier::BOLD))
         .alignment(Alignment::Center);
     f.render_widget(header, area);
+}
+
+fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
+    let text = "esp-csi-tui-rs,DDN@2025";
+
+    // Dimmer, not highlighted: Use root background and DarkGray text
+    let bg_color = app.theme.root.bg.unwrap_or(Color::Reset);
+    let fg_color = Color::DarkGray;
+
+    let footer = Paragraph::new(text)
+        .style(Style::default().bg(bg_color).fg(fg_color).add_modifier(Modifier::ITALIC))
+        .alignment(Alignment::Center);
+    f.render_widget(footer, area);
 }
 
 fn draw_tree(f: &mut Frame, app: &App, node: &LayoutNode, area: Rect, path: Vec<usize>) {
