@@ -77,7 +77,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn new() -> Self {
+    pub fn new(rerun_addr: Option<String>) -> Self {
         let (tiling, theme) = if let Some(tm) = config_manager::load_startup_template() {
             let loaded_theme = if let Some(variant) = tm.theme_variant {
                 Theme::new(variant)
@@ -89,7 +89,7 @@ impl App {
             (TilingManager::new(), Theme::new(ThemeType::Dark))
         };
 
-        Self {
+        let app = Self {
             tiling,
             theme,
             show_help: false,
@@ -118,7 +118,17 @@ impl App {
             splitter_regions: RefCell::new(Vec::new()),
             drag_state: None,
             rerun_streamer: Some(crate::rerun_stream::create_shared_streamer()),
+        };
+
+        if let Some(addr) = rerun_addr {
+            if let Some(ref streamer) = app.rerun_streamer {
+                if let Ok(mut s) = streamer.lock() {
+                    s.connect(&addr);
+                }
+            }
         }
+
+        app
     }
 
     pub fn get_pane_state_mut(&mut self, id: usize) -> &mut ViewState {
@@ -147,13 +157,24 @@ impl App {
                 pps: mock_pps,
                 snr,
                 timestamp: elapsed,
-                csi: Some(csi_packet),
+                csi: Some(csi_packet.clone()),
             };
 
             if self.history.len() >= MAX_HISTORY_SIZE {
                 self.history.remove(0);
             }
             self.history.push(self.current_stats.clone());
+            
+            // Log to Rerun if enabled
+            if let Some(ref streamer) = self.rerun_streamer {
+                if let Ok(mut s) = streamer.lock() {
+                    #[cfg(feature = "rerun")]
+                    {
+                        let frame = crate::rerun_stream::CsiFrame::from(&csi_packet);
+                        s.push_csi(&frame);
+                    }
+                }
+            }
         }
     }
 

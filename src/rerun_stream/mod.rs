@@ -1,298 +1,186 @@
 // --- File: src/rerun_stream/mod.rs ---
 // --- Purpose: Rerun.io integration for live streaming and RRD recording of CSI data ---
 
+use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
-use rerun::{RecordingStream, RecordingStreamBuilder};
 use crate::backend::csi_data::CsiData;
 
-/// Rerun streamer managing both live streaming and RRD recording
-///
-/// # Example Usage
-///
-/// ```rust,ignore
-/// use std::sync::{Arc, Mutex};
-/// use rerun_stream::RerunStreamer;
-///
-/// // Create streamer
-/// let streamer = Arc::new(Mutex::new(RerunStreamer::new()));
-///
-/// // Start live streaming
-/// {
-///     let mut s = streamer.lock().unwrap();
-///     s.start_stream("127.0.0.1:9876").unwrap();
-/// }
-///
-/// // Start RRD recording
-/// {
-///     let mut s = streamer.lock().unwrap();
-///     s.start_record("logs/csi.rrd").unwrap();
-/// }
-///
-/// // Log CSI data
-/// {
-///     let mut s = streamer.lock().unwrap();
-///     if let Some(csi_packet) = get_csi_packet() {
-///         s.log_csi(&csi_packet);
-///     }
-/// }
-///
-/// // Toggle streaming off
-/// {
-///     let mut s = streamer.lock().unwrap();
-///     s.stop_stream();
-/// }
-///
-/// // Toggle recording off
-/// {
-///     let mut s = streamer.lock().unwrap();
-///     s.stop_record();
-/// }
-/// ```
+#[cfg(feature = "rerun")]
+use rerun::{RecordingStream, RecordingStreamBuilder};
+#[cfg(feature = "rerun")]
+use rerun::archetypes::{BarChart, Tensor, Points3D};
+#[cfg(feature = "rerun")]
+use rerun::components::{Color, Position3D};
+
+// Data Model "CsiFrame"
+#[derive(Debug, Clone, Copy)]
+pub struct CsiFrame {
+    pub timestamp: u64,
+    pub subcarriers: [i16; 64],         // raw CSI real/imag pairs (placeholder)
+    pub amplitude: [f32; 64],           // parsed
+    pub phase: [f32; 64],               // parsed
+    pub real: [f32; 64],                // real parts
+    pub imag: [f32; 64],                // imaginary parts
+}
+
+impl From<&CsiData> for CsiFrame {
+    fn from(data: &CsiData) -> Self {
+        let mut frame = CsiFrame {
+            timestamp: data.timestamp,
+            subcarriers: [0; 64],
+            amplitude: [0.0; 64],
+            phase: [0.0; 64],
+            real: [0.0; 64],
+            imag: [0.0; 64],
+        };
+
+        // Parse raw data (interleaved I/Q)
+        for i in 0..64 {
+            if 2 * i + 1 < data.csi_raw_data.len() {
+                let re = data.csi_raw_data[2 * i] as f32;
+                let im = data.csi_raw_data[2 * i + 1] as f32;
+                
+                frame.real[i] = re;
+                frame.imag[i] = im;
+                frame.amplitude[i] = (re * re + im * im).sqrt();
+                frame.phase[i] = im.atan2(re);
+                frame.subcarriers[i] = re as i16; 
+            }
+        }
+        frame
+    }
+}
+
 pub struct RerunStreamer {
-    /// Live streaming connection to Rerun viewer
-    live_stream: Option<RecordingStream>,
-    /// RRD file recording stream
-    rrd_record: Option<RecordingStream>,
+    #[cfg(feature = "rerun")]
+    rr: Option<RecordingStream>,
+    #[cfg(feature = "rerun")]
+    heatmap: VecDeque<[f32; 64]>,
+    
+    app_id: String,
 }
 
 impl RerunStreamer {
-    /// Create a new RerunStreamer with no active connections
-    pub fn new() -> Self {
+    pub fn new(app_id: &str) -> Self {
         Self {
-            live_stream: None,
-            rrd_record: None,
+            #[cfg(feature = "rerun")]
+            rr: None,
+            #[cfg(feature = "rerun")]
+            heatmap: VecDeque::with_capacity(500),
+            
+            app_id: app_id.to_string(),
         }
     }
 
-    /// Start live streaming to a Rerun viewer
-    ///
-    /// Connects to the default Rerun viewer address (127.0.0.1:9876)
-    ///
-    /// # Returns
-    /// * `Ok(())` if connection successful
-    /// * `Err(...)` if connection failed
-    ///
-    /// # Example
-    /// ```rust,ignore
-    /// streamer.start_stream()?;
-    /// ```
-    pub fn start_stream(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let rec = RecordingStreamBuilder::new("csi_live")
-            .connect_tcp()?;
-        
-        self.live_stream = Some(rec);
-        Ok(())
-    }
+    pub fn connect(&mut self, addr: &str) {
+        #[cfg(feature = "rerun")]
+        {
+            // Handle raw IP/Host addresses by wrapping them in the expected Rerun URL format
+            let target = if addr.starts_with("rerun+") {
+                addr.to_string()
+            } else {
+                let host_port = if addr.contains(':') { addr.to_string() } else { format!("{}:9876", addr) };
+                format!("rerun+http://{}/proxy", host_port)
+            };
 
-    /// Stop live streaming
-    ///
-    /// Gracefully disconnects from the Rerun viewer.
-    pub fn stop_stream(&mut self) {
-        if let Some(stream) = self.live_stream.take() {
-            // RecordingStream automatically flushes on drop
-            drop(stream);
-        }
-    }
-
-    /// Start recording to an RRD file
-    ///
-    /// # Arguments
-    /// * `path` - File path for the .rrd output (e.g., "logs/csi.rrd")
-    ///
-    /// # Returns
-    /// * `Ok(())` if recording started successfully
-    /// * `Err(...)` if file creation failed
-    ///
-    /// # Example
-    /// ```rust,ignore
-    /// streamer.start_record("logs/csi_session.rrd")?;
-    /// ```
-    pub fn start_record(&mut self, path: &str) -> Result<(), Box<dyn std::error::Error>> {
-        // Ensure parent directory exists
-        if let Some(parent) = std::path::Path::new(path).parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-
-        let rec = RecordingStreamBuilder::new("csi_record")
-            .save(path)?;
-        
-        self.rrd_record = Some(rec);
-        Ok(())
-    }
-
-    /// Stop RRD recording
-    ///
-    /// Flushes and closes the RRD file.
-    pub fn stop_record(&mut self) {
-        if let Some(stream) = self.rrd_record.take() {
-            // RecordingStream automatically flushes on drop
-            drop(stream);
-        }
-    }
-
-    /// Log a CSI packet to all active endpoints (live stream + RRD)
-    ///
-    /// Converts CSI data to amplitude arrays and logs to Rerun.
-    ///
-    /// # Arguments
-    /// * `sample` - Reference to the CSI packet to log
-    ///
-    /// # Example
-    /// ```rust,ignore
-    /// let csi_packet = CsiData { ... };
-    /// streamer.log_csi(&csi_packet);
-    /// ```
-    pub fn log_csi(&mut self, sample: &CsiData) {
-        // Convert CSI raw data to amplitudes
-        let amplitudes = self.compute_amplitudes(&sample.csi_raw_data);
-
-        // Log to live stream if active
-        if let Some(ref rec) = self.live_stream {
-            self.log_to_stream(rec, sample, &amplitudes);
-        }
-
-        // Log to RRD recording if active
-        if let Some(ref rec) = self.rrd_record {
-            self.log_to_stream(rec, sample, &amplitudes);
-        }
-    }
-
-    /// Check if live streaming is active
-    pub fn is_streaming(&self) -> bool {
-        self.live_stream.is_some()
-    }
-
-    /// Check if RRD recording is active
-    pub fn is_recording(&self) -> bool {
-        self.rrd_record.is_some()
-    }
-
-    // --- Private Helper Methods ---
-
-    /// Compute amplitude array from CSI raw data
-    ///
-    /// CSI data comes as interleaved I/Q pairs: [I0, Q0, I1, Q1, ...]
-    /// Amplitude = sqrt(I^2 + Q^2)
-    fn compute_amplitudes(&self, csi_raw: &[i32]) -> Vec<f32> {
-        let mut amplitudes = Vec::with_capacity(csi_raw.len() / 2);
-        
-        for chunk in csi_raw.chunks(2) {
-            if chunk.len() == 2 {
-                let i = chunk[0] as f32;
-                let q = chunk[1] as f32;
-                let amplitude = (i * i + q * q).sqrt();
-                amplitudes.push(amplitude);
+            let rec = RecordingStreamBuilder::new(self.app_id.as_str())
+                .connect_grpc_opts(target.clone());
+            
+            match rec {
+                Ok(r) => {
+                    self.rr = Some(r);
+                    eprintln!("[Rerun] ✓ Connected to {}", target);
+                }
+                Err(e) => eprintln!("[Rerun] ✗ Failed to connect: {}", e),
             }
         }
-        
-        amplitudes
-    }
-
-    /// Compute phase array from CSI raw data (optional)
-    ///
-    /// Phase = atan2(Q, I)
-    #[allow(dead_code)]
-    fn compute_phases(&self, csi_raw: &[i32]) -> Vec<f32> {
-        let mut phases = Vec::with_capacity(csi_raw.len() / 2);
-        
-        for chunk in csi_raw.chunks(2) {
-            if chunk.len() == 2 {
-                let i = chunk[0] as f32;
-                let q = chunk[1] as f32;
-                let phase = q.atan2(i);
-                phases.push(phase);
-            }
+        #[cfg(not(feature = "rerun"))]
+        {
+            eprintln!("[Rerun] Feature disabled. Recompile with --features rerun");
         }
-        
-        phases
     }
 
-    /// Log CSI data to a specific recording stream
-    fn log_to_stream(&self, rec: &RecordingStream, sample: &CsiData, amplitudes: &[f32]) {
-        // Log amplitude as a tensor/time series
-        let _ = rec.log(
-            "csi/amplitude",
-            &rerun::Tensor::try_from(amplitudes.to_vec()).unwrap(),
-        );
+    pub fn push_csi(&mut self, csi: &CsiFrame) {
+        #[cfg(feature = "rerun")]
+        if let Some(rec) = &self.rr {
+            rec.set_time_sequence("frame_idx", csi.timestamp as i64);
 
-        // Log metadata as scalar values
-        let _ = rec.log(
-            "csi/rssi",
-            &rerun::Scalar::new(sample.rssi as f64),
-        );
+            // 1. Bar Plot (Amplitude) -> "csi/bar_amplitude"
+            let _ = rec.log(
+                "csi/bar_amplitude",
+                &BarChart::new(csi.amplitude.to_vec()),
+            );
 
-        let _ = rec.log(
-            "csi/noise_floor",
-            &rerun::Scalar::new(sample.noise_floor as f64),
-        );
+            // 2. Heatmap -> "csi/heatmap"
+            if self.heatmap.len() >= 500 {
+                self.heatmap.pop_front();
+            }
+            self.heatmap.push_back(csi.amplitude);
 
-        let snr = sample.rssi - sample.noise_floor;
-        let _ = rec.log(
-            "csi/snr",
-            &rerun::Scalar::new(snr as f64),
-        );
+            // Convert heatmap buffer to Image (u8 grayscale)
+            let height = self.heatmap.len();
+            let width = 64;
+            let mut img_data = Vec::with_capacity(width * height);
+            
+            // Normalize to 0-255
+            let max_val = self.heatmap.iter().flatten().fold(0.0f32, |a, &b| a.max(b));
+            let scale = if max_val > 0.0 { 255.0 / max_val } else { 0.0 };
 
-        let _ = rec.log(
-            "csi/channel",
-            &rerun::Scalar::new(sample.channel as f64),
-        );
+            for row in &self.heatmap {
+                for &val in row {
+                    img_data.push((val * scale) as u8);
+                }
+            }
 
-        // Log device MAC as text annotation
-        let _ = rec.log(
-            "csi/device_mac",
-            &rerun::TextLog::new(sample.mac.as_str()),
-        );
+            let tensor_data = rerun::TensorData::new(
+                vec![height as u64, width as u64],
+                rerun::TensorBuffer::U8(img_data.into())
+            );
+
+            let _ = rec.log(
+                "csi/heatmap",
+                &Tensor::new(tensor_data),
+            );
+
+            // 3. 3D Scatter -> "csi/complex_scatter"
+            let positions: Vec<Position3D> = (0..64).map(|i| {
+                Position3D::new(csi.real[i], csi.imag[i], csi.amplitude[i])
+            }).collect();
+
+            let colors: Vec<Color> = (0..64).map(|i| {
+                // Map phase (-PI..PI) to 0..255
+                let p = csi.phase[i];
+                let norm = (p + std::f32::consts::PI) / (2.0 * std::f32::consts::PI);
+                let c = (norm * 255.0).clamp(0.0, 255.0) as u8;
+                Color::from_unmultiplied_rgba(c, 100, 255 - c, 255)
+            }).collect();
+
+            let _ = rec.log(
+                "csi/complex_scatter",
+                &Points3D::new(positions).with_colors(colors),
+            );
+        }
     }
-}
 
-impl Default for RerunStreamer {
-    fn default() -> Self {
-        Self::new()
+    pub fn is_connected(&self) -> bool {
+        #[cfg(feature = "rerun")]
+        return self.rr.is_some();
+        #[cfg(not(feature = "rerun"))]
+        false
+    }
+
+    pub fn disconnect(&mut self) {
+        #[cfg(feature = "rerun")]
+        {
+            self.rr = None;
+            eprintln!("[Rerun] Disconnected");
+        }
     }
 }
 
 // Thread-safe wrapper type alias for convenience
 pub type SharedRerunStreamer = Arc<Mutex<RerunStreamer>>;
 
-/// Create a new shared RerunStreamer instance
-///
-/// # Example
-/// ```rust,ignore
-/// let streamer = rerun_stream::create_shared_streamer();
-/// ```
 pub fn create_shared_streamer() -> SharedRerunStreamer {
-    Arc::new(Mutex::new(RerunStreamer::new()))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_compute_amplitudes() {
-        let streamer = RerunStreamer::new();
-        
-        // Test with sample I/Q data
-        let csi_raw = vec![3, 4, 5, 12]; // Amplitudes should be 5.0 and 13.0
-        let amplitudes = streamer.compute_amplitudes(&csi_raw);
-        
-        assert_eq!(amplitudes.len(), 2);
-        assert!((amplitudes[0] - 5.0).abs() < 0.001);
-        assert!((amplitudes[1] - 13.0).abs() < 0.001);
-    }
-
-    #[test]
-    fn test_new_streamer() {
-        let streamer = RerunStreamer::new();
-        assert!(!streamer.is_streaming());
-        assert!(!streamer.is_recording());
-    }
-
-    #[test]
-    fn test_stop_before_start() {
-        let mut streamer = RerunStreamer::new();
-        // Should not panic
-        streamer.stop_stream();
-        streamer.stop_record();
-    }
+    Arc::new(Mutex::new(RerunStreamer::new("esp-csi-tui")))
 }

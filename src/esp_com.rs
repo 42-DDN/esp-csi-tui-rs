@@ -46,7 +46,11 @@ pub fn esp_com(app: Arc<Mutex<App>>) {
                             // Log to Rerun if enabled
                             if let Some(ref streamer) = app.rerun_streamer {
                                 if let Ok(mut s) = streamer.lock() {
-                                    s.log_csi(&data);
+                                    #[cfg(feature = "rerun")]
+                                    {
+                                        let frame = crate::rerun_stream::CsiFrame::from(&data);
+                                        s.push_csi(&frame);
+                                    }
                                 }
                             }
                         }

@@ -50,34 +50,23 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
                 match key.code {
                     KeyCode::Left | KeyCode::Right => { app.tiling.split(Direction::Horizontal); return Ok(true); }
                     KeyCode::Up | KeyCode::Down => { app.tiling.split(Direction::Vertical); return Ok(true); }
-                    KeyCode::Char('R') => {
+                    KeyCode::Char('r') | KeyCode::Char('R') => {
                         // Toggle Rerun live streaming
+                        eprintln!("[DEBUG] Shift+R pressed, toggling Rerun streaming");
                         if let Some(ref streamer) = app.rerun_streamer {
                             if let Ok(mut s) = streamer.lock() {
-                                if s.is_streaming() {
-                                    s.stop_stream();
+                                if s.is_connected() {
+                                    s.disconnect();
                                 } else {
-                                    let _ = s.start_stream();
+                                    s.connect("127.0.0.1:9876");
                                 }
                             }
                         }
                         return Ok(true);
                     }
-                    KeyCode::Char('L') => {
-                        // Toggle Rerun RRD recording
-                        if let Some(ref streamer) = app.rerun_streamer {
-                            if let Ok(mut s) = streamer.lock() {
-                                if s.is_recording() {
-                                    s.stop_record();
-                                } else {
-                                    let timestamp = std::time::SystemTime::now()
-                                        .duration_since(std::time::UNIX_EPOCH)
-                                        .unwrap()
-                                        .as_secs();
-                                    let _ = s.start_record(&format!("logs/csi_{}.rrd", timestamp));
-                                }
-                            }
-                        }
+                    KeyCode::Char('l') | KeyCode::Char('L') => {
+                        // RRD recording removed
+                        eprintln!("[DEBUG] Shift+L pressed, but RRD recording is disabled in this version.");
                         return Ok(true);
                     }
                     _ => return Ok(false),

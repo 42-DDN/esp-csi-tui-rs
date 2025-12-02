@@ -51,11 +51,8 @@ fn draw_header(f: &mut Frame, app: &App, area: Rect) {
     // Rerun status
     if let Some(ref streamer) = app.rerun_streamer {
         if let Ok(s) = streamer.lock() {
-            if s.is_streaming() {
+            if s.is_connected() {
                 status_parts.push(Span::styled(" 🔴LIVE ", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)));
-            }
-            if s.is_recording() {
-                status_parts.push(Span::styled(" ⏺REC ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)));
             }
         }
     }
@@ -63,7 +60,7 @@ fn draw_header(f: &mut Frame, app: &App, area: Rect) {
     let hotkeys = if app.fullscreen_pane_id.is_some() {
         " [Space] Exit Fullscreen | [Arrows] Playback | [WASD] Move Camera | [R] Reset Live | [Q] Quit "
     } else {
-        " [Shift+Arrow] Split | [Del] Close | [Drag] Resize | [0-9] Focus | [Enter] View | [M] Menu | [Shift+R] Stream | [Shift+L] Record "
+        " [Shift+Arrow] Split | [Del] Close | [Drag] Resize | [0-9] Focus | [Enter] View | [M] Menu | [Shift+R] Stream "
     };
 
     // Combine status and hotkeys
