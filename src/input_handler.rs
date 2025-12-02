@@ -29,8 +29,6 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
             // --- FULLSCREEN MODE NAVIGATION ---
             if let Some(fs_id) = app.fullscreen_pane_id {
                 let current_view_type = get_view_type_for_pane(app, fs_id);
-
-                // FIX 2: Use packet_count (u64) for absolute ID navigation logic
                 let current_live_id = app.current_stats.packet_count;
                 let state = app.get_pane_state_mut(fs_id);
 
@@ -39,8 +37,6 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
                     KeyCode::Char(' ') | KeyCode::Esc => { app.fullscreen_pane_id = None; return Ok(true); }
                     KeyCode::Char('r') => { state.reset_live(); return Ok(true); }
 
-                    // TEMPORAL NAVIGATION
-                    // Pass current_live_id (u64) not history length (usize)
                     KeyCode::Left if current_view_type.is_temporal() => {
                         state.step_back(current_live_id);
                         return Ok(true);
@@ -50,7 +46,6 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
                         return Ok(true);
                     }
 
-                    // SPATIAL NAVIGATION
                     KeyCode::Char('w') if current_view_type.is_spatial() => { state.move_camera(0.0, -1.0); return Ok(true); }
                     KeyCode::Char('s') if current_view_type.is_spatial() => { state.move_camera(0.0, 1.0); return Ok(true); }
                     KeyCode::Char('a') if current_view_type.is_spatial() => { state.move_camera(-1.0, 0.0); return Ok(true); }
@@ -77,7 +72,6 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
                     KeyCode::Delete => { app.tiling.close_focused_pane(); return Ok(true); }
                     KeyCode::Char(' ') => { app.fullscreen_pane_id = Some(app.tiling.focused_pane_id); return Ok(true); }
 
-                    // RESET FOCUSED PANE
                     KeyCode::Char('r') => {
                         let id = app.tiling.focused_pane_id;
                         app.get_pane_state_mut(id).reset_live();
@@ -158,9 +152,30 @@ fn handle_popups(app: &mut App, key: crossterm::event::KeyEvent) -> io::Result<b
         return Ok(true);
     }
 
+    if app.show_theme_selector {
+        match key.code {
+            KeyCode::Up => {
+                if app.theme_selector_index > 0 { app.theme_selector_index -= 1; }
+                else { app.theme_selector_index = AVAILABLE_THEMES.len() - 1; }
+            }
+            KeyCode::Down => {
+                app.theme_selector_index = (app.theme_selector_index + 1) % AVAILABLE_THEMES.len();
+            }
+            // Use Space OR Enter to select, but KEEP OPEN
+            KeyCode::Enter | KeyCode::Char(' ') => {
+                let (variant, _) = AVAILABLE_THEMES[app.theme_selector_index];
+                app.theme = Theme::new(variant);
+                // Removed: app.show_theme_selector = false;
+            }
+            KeyCode::Esc | KeyCode::Char('q') => app.show_theme_selector = false,
+            _ => {}
+        }
+        return Ok(true);
+    }
+
     if app.show_load_selector {
         match key.code {
-            KeyCode::Up | KeyCode::Down | KeyCode::Char('d') | KeyCode::Enter | KeyCode::Esc | KeyCode::Char('q') => {
+            KeyCode::Up | KeyCode::Down | KeyCode::Char('d') | KeyCode::Enter | KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char(' ') => {
                 if key.code == KeyCode::Esc || key.code == KeyCode::Char('q') { app.show_load_selector = false; }
                 else {
                     if key.code == KeyCode::Up {
@@ -170,7 +185,7 @@ fn handle_popups(app: &mut App, key: crossterm::event::KeyEvent) -> io::Result<b
                     if key.code == KeyCode::Down {
                         if !app.available_templates.is_empty() { app.load_selector_index = (app.load_selector_index + 1) % app.available_templates.len(); }
                     }
-                    if key.code == KeyCode::Enter && !app.available_templates.is_empty() {
+                    if (key.code == KeyCode::Enter || key.code == KeyCode::Char(' ')) && !app.available_templates.is_empty() {
                         let (filename, _) = &app.available_templates[app.load_selector_index];
                         if let Ok(new_tiling) = config_manager::load_template(filename) {
                             if let Some(variant) = new_tiling.theme_variant { app.theme = crate::theme::Theme::new(variant); }
@@ -199,7 +214,7 @@ fn handle_popups(app: &mut App, key: crossterm::event::KeyEvent) -> io::Result<b
         return Ok(true);
     }
 
-    if app.show_view_selector || app.show_main_menu || app.show_theme_selector {
+    if app.show_view_selector || app.show_main_menu {
         match key.code {
             KeyCode::Up | KeyCode::Down | KeyCode::Enter | KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('m') | KeyCode::Char(' ') => {
                 if app.show_view_selector {
@@ -233,18 +248,6 @@ fn handle_popups(app: &mut App, key: crossterm::event::KeyEvent) -> io::Result<b
                         app.main_menu_index = (app.main_menu_index + 1) % MENU_ITEMS.len();
                     } else {
                         app.show_main_menu = false;
-                    }
-                } else if app.show_theme_selector {
-                    if key.code == KeyCode::Enter || key.code == KeyCode::Char(' ') {
-                        let (variant, _) = AVAILABLE_THEMES[app.theme_selector_index];
-                        app.theme = Theme::new(variant);
-                        app.show_theme_selector = false;
-                    } else if key.code == KeyCode::Up {
-                        if app.theme_selector_index > 0 { app.theme_selector_index -= 1; } else { app.theme_selector_index = AVAILABLE_THEMES.len() - 1; }
-                    } else if key.code == KeyCode::Down {
-                        app.theme_selector_index = (app.theme_selector_index + 1) % AVAILABLE_THEMES.len();
-                    } else {
-                        app.show_theme_selector = false;
                     }
                 }
                 return Ok(true);
