@@ -28,7 +28,8 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
             // --- FULLSCREEN MODE NAVIGATION ---
             if let Some(fs_id) = app.fullscreen_pane_id {
                 let current_view_type = get_view_type_for_pane(app, fs_id);
-                let current_live_id = app.current_stats.packet_count;
+                // REFACTOR: Changed packet_count to id
+                let current_live_id = app.current_stats.id;
                 let state = app.get_pane_state_mut(fs_id);
 
                 match key.code {

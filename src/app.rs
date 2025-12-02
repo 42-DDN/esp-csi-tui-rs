@@ -1,37 +1,35 @@
 // --- File: src/app.rs ---
 // --- Purpose: Holds the central Application State and Logic ---
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use ratatui::layout::Rect;
 
 use crate::dataloader::Dataloader;
-use crate::{config_manager};
-use crate::frontend::layout_tree::{TilingManager, SplitDirection};
+use crate::config_manager;
+use crate::frontend::layout_tree::TilingManager;
 use crate::frontend::theme::{Theme, ThemeType};
 use crate::frontend::view_state::ViewState;
 use crate::backend::csi_data::CsiData;
 
+// We store fewer packets because we are storing averages now.
+// 10,000 averages @ 10Hz = 1000 seconds (~16 minutes) of history.
 pub const MAX_HISTORY_SIZE: usize = 10000;
+
+// Configurable update rate.
+// 0.5s = 500ms (Very slow, but good for long term stats)
+// 0.1s = 100ms (Recommended for "Real-time" feel)
+pub const UPDATE_INTERVAL: Duration = Duration::from_millis(100);
 
 #[derive(Clone, Debug)]
 pub struct NetworkStats {
-    pub packet_count: u64,
+    pub id: u64, // Unique sequence ID for the UI
     pub rssi: i32,
     pub pps: u64,
     pub snr: i32,
     pub timestamp: u64,
     pub csi: Option<CsiData>,
-}
-
-// State for resizing operation
-pub struct DragState {
-    pub split_path: Vec<usize>,
-    pub start_ratio: u16,
-    pub start_mouse_pos: (u16, u16),
-    pub direction: SplitDirection,
-    pub container_size: u16,
 }
 
 pub struct App {
@@ -45,31 +43,40 @@ pub struct App {
     pub view_selector_index: usize,
     pub show_main_menu: bool,
     pub main_menu_index: usize,
-
     pub show_theme_selector: bool,
     pub theme_selector_index: usize,
-
     pub show_save_input: bool,
     pub input_buffer: String,
-
     pub show_load_selector: bool,
     pub load_selector_index: usize,
     pub available_templates: Vec<(String, bool)>,
 
     pub fullscreen_pane_id: Option<usize>,
     pub pane_states: HashMap<usize, ViewState>,
-
     pub should_quit: bool,
 
+    // Data State
     pub current_stats: NetworkStats,
     pub history: Vec<NetworkStats>,
-    pub start_time: Instant,
 
-    // Interaction Caches
+    // Timing State
+    pub start_time: Instant,
+    pub last_update_time: Instant,
+
+    // Interaction Caches & Backend
     pub pane_regions: RefCell<Vec<(usize, Rect)>>,
     pub dataloader: Dataloader,
-    pub splitter_regions: RefCell<Vec<(Vec<usize>, Rect, SplitDirection)>>,
-    pub drag_state: Option<DragState>,
+    pub splitter_regions: RefCell<Vec<(Vec<usize>, Rect, crate::frontend::layout_tree::SplitDirection)>>,
+    pub drag_state: Option<crate::app::DragState>, // Re-using DragState struct definition or define here if moved
+}
+
+// State for resizing operation
+pub struct DragState {
+    pub split_path: Vec<usize>,
+    pub start_ratio: u16,
+    pub start_mouse_pos: (u16, u16),
+    pub direction: crate::frontend::layout_tree::SplitDirection,
+    pub container_size: u16,
 }
 
 impl App {
@@ -104,11 +111,13 @@ impl App {
             fullscreen_pane_id: None,
             pane_states: HashMap::new(),
             should_quit: false,
-            dataloader: Dataloader::new(),
 
-            current_stats: NetworkStats { packet_count: 0, rssi: -90, pps: 0, snr: 0, timestamp: 0, csi: None },
+            dataloader: Dataloader::new(),
+            current_stats: NetworkStats { id: 0, rssi: -90, pps: 0, snr: 0, timestamp: 0, csi: None },
             history: Vec::with_capacity(MAX_HISTORY_SIZE),
+
             start_time: Instant::now(),
+            last_update_time: Instant::now(),
 
             pane_regions: RefCell::new(Vec::new()),
             splitter_regions: RefCell::new(Vec::new()),
@@ -121,34 +130,60 @@ impl App {
     }
 
     pub fn on_tick(&mut self) {
-        // FIX: Cast u64 packet_count to usize for the backend call
-        let idx = self.current_stats.packet_count as usize;
+        // 1. Drain the Queue from the background thread
+        // We do this every tick to prevent the queue from exploding in memory,
+        // even if we don't update the UI yet.
+        // (Alternatively, let it build up and drain only when updating,
+        // but draining periodically is safer for memory spikes).
+        // For accurate averaging over the interval, we need to accumulate them.
 
-        let csi_packet = self.dataloader.get_data_packet(idx);
-        let elapsed = self.start_time.elapsed().as_millis() as u64;
-        let mock_pps = (idx as u64 % 50) * 12 + 100;
+        // HOWEVER, since Dataloader is now a Queue, we can simply wait until the
+        // timer fires to drain it.
 
-        let noise_floor = if csi_packet.noise_floor > 127 {
-            csi_packet.noise_floor - 256
-        } else {
-            csi_packet.noise_floor
-        };
+        if self.last_update_time.elapsed() >= UPDATE_INTERVAL {
+            // TIME TO UPDATE!
 
-        let snr = csi_packet.rssi - noise_floor;
+            let raw_packets = self.dataloader.drain_buffer();
+            let count = raw_packets.len();
 
-        self.current_stats = NetworkStats {
-            packet_count: (idx + 1) as u64,
-            rssi: csi_packet.rssi,
-            pps: mock_pps,
-            snr,
-            timestamp: elapsed,
-            csi: Some(csi_packet),
-        };
+            if count > 0 {
+                // Calculate Average
+                let averaged_csi = CsiData::average(&raw_packets);
+                let elapsed_ms = self.start_time.elapsed().as_millis() as u64;
 
-        if self.history.len() >= MAX_HISTORY_SIZE {
-            self.history.remove(0);
+                // PPS Calculation: (Packets in this batch) / (Time since last update in seconds)
+                // interval is 0.5s. If we got 50 packets, PPS = 50 / 0.5 = 100.
+                let interval_secs = UPDATE_INTERVAL.as_secs_f64();
+                let calculated_pps = (count as f64 / interval_secs) as u64;
+
+                let noise = averaged_csi.noise_floor;
+                let snr = averaged_csi.rssi - noise;
+
+                // Create new Stat Snapshot
+                let new_stat = NetworkStats {
+                    id: self.current_stats.id + 1,
+                    rssi: averaged_csi.rssi,
+                    pps: calculated_pps,
+                    snr,
+                    timestamp: elapsed_ms,
+                    csi: Some(averaged_csi),
+                };
+
+                self.current_stats = new_stat.clone();
+
+                // History Management
+                if self.history.len() >= MAX_HISTORY_SIZE {
+                    self.history.remove(0);
+                }
+                self.history.push(new_stat);
+            } else {
+                // No data received in this interval
+                // We can either hold the last value or show "0 PPS"
+                 self.current_stats.pps = 0;
+            }
+
+            self.last_update_time = Instant::now();
         }
-        self.history.push(self.current_stats.clone());
     }
 
     pub fn next_theme(&mut self) {

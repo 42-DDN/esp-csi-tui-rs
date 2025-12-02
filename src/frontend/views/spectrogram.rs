@@ -1,1 +1,1 @@
-//### Variance (Spectrogram)
+//### variance of the Amplitude/Phase (doppler effect) (spectrogram) delay doppler spectrum

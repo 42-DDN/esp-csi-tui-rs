@@ -14,7 +14,8 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect, is_focused: bool, id: usize) {
 
     if let Some(state) = app.pane_states.get(&id) {
         if let Some(anchor_id) = state.anchor_packet_id {
-            if let Some(found_packet) = app.history.iter().find(|p| p.packet_count == anchor_id) {
+            // REFACTOR: Changed packet_count to id in finding logic
+            if let Some(found_packet) = app.history.iter().find(|p| p.id == anchor_id) {
                 stats = found_packet;
                 status_label = format!(" [REPLAY ID:{}] ", anchor_id);
                 status_style = Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD);

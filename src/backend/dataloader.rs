@@ -1,27 +1,29 @@
 // --- File: src/backend/dataloader.rs ---
+// --- Purpose: Acts as a thread-safe Queue/Buffer for incoming data ---
+
 use super::csi_data::CsiData;
+use std::collections::VecDeque;
 
 pub struct Dataloader {
-    pub data: Vec<Option<CsiData>>,
+    // Changed from random-access Vec to a Queue
+    pub queue: VecDeque<CsiData>,
 }
 
 impl Dataloader {
     pub fn new() -> Self {
         Self {
-            data: Vec::new(),
+            queue: VecDeque::new(),
         }
     }
 
-    pub fn get_data_packet(&mut self, idx: usize) -> CsiData {
-        if idx >= self.data.len() {
-            let zero = CsiData::default();
-            self.data.push(Some(zero.clone()));
-            return zero;
-        }
-        self.data.get(idx).cloned().flatten().unwrap_or_default()
-    }
-
+    /// Called by the backend thread to add fresh data
     pub fn push_data_packet(&mut self, packet: CsiData) {
-        self.data.push(Some(packet));
+        self.queue.push_back(packet);
+    }
+
+    /// REPLACEMENT: Called by App::on_tick to consume ALL pending data for averaging
+    /// This replaces get_data_packet
+    pub fn drain_buffer(&mut self) -> Vec<CsiData> {
+        self.queue.drain(..).collect()
     }
 }
