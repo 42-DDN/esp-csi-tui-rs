@@ -1,6 +1,25 @@
 // --- File: src/frontend/views/stats.rs ---
 // --- Purpose: Dashboard view displaying live statistics and signal quality ---
-
+//
+// [Graph Description]
+// A textual and gauge-based dashboard for monitoring link health.
+// Displays: PPS (Packets Per Second), SNR (Signal-to-Noise Ratio), RSSI (Signal Strength).
+//
+// [Plotting Logic]
+// Uses standard UI widgets (Gauges, Paragraphs) to display scalar telemetry data.
+//
+// [Concepts & Application]
+// Provides a high-level overview of the connection quality.
+// - RSSI: How loud the signal is.
+// - SNR: How clear the signal is (Signal vs Background Noise).
+// - PPS: Data throughput/stability.
+// Essential for verifying that the hardware is functioning and the link is established
+// before analyzing complex CSI data.
+//
+// [Demo]
+// Move the TX/RX further apart to see RSSI/SNR drop.
+// Block the antenna with your hand to see a sharp drop in SNR.
+//
 use ratatui::{prelude::*, widgets::*};
 use crate::App;
 

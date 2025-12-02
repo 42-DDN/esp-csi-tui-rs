@@ -1,6 +1,28 @@
 // --- File: src/frontend/views/phase.rs ---
 // --- Purpose: Phase angle visualization (2.5D Wireframe Waterfall) ---
-// Phase vs. Subcarrier vs. Time
+//
+// [Graph Description]
+// A 2.5D wireframe waterfall plot visualizing the Phase Angle of the CSI data.
+// X-Axis: Subcarrier Index (Frequency)
+// Y-Axis: Phase (Radians, -PI to +PI)
+// Z-Axis (Depth): Time (Packet History)
+//
+// [Plotting Logic]
+// The graph uses an oblique projection to stack historical packets behind the current live packet.
+// Each line represents a single packet's phase profile across all subcarriers.
+// Color gradients indicate the "age" of the packet (Bright = New, Dark = Old).
+//
+// [Concepts & Application]
+// Phase information is highly sensitive to distance changes (on the order of wavelengths).
+// In a static environment, the phase profile should remain relatively constant (straight lines).
+// Motion in the environment changes the path length, causing the phase to rotate or shift.
+// This view is essential for detecting subtle movements (breathing, heartbeats) or tracking
+// the direction of motion (phase roll).
+//
+// [Demo]
+// Move an object slowly between the Transmitter and Receiver. You should see "waves" or ripples
+// propagating through the wireframe as the phase wraps around -PI/+PI.
+//
 use ratatui::{prelude::*, widgets::*};
 use ratatui::widgets::canvas::{Canvas, Line as CanvasLine};
 use crate::App;

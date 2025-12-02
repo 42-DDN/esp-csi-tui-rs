@@ -1,6 +1,29 @@
 // --- File: src/frontend/views/spectrogram.rs ---
 // --- Purpose: Doppler Spectrogram (Phase Velocity / Variance Visualization) ---
-
+//
+// [Graph Description]
+// A 2D Heatmap (Spectrogram) showing the rate of change of the signal phase.
+// X-Axis: Subcarrier Index
+// Y-Axis: Time (History)
+// Color: Magnitude of Phase Difference (Delta Phi) between consecutive packets.
+//
+// [Plotting Logic]
+// Calculates the phase difference between packet[t] and packet[t-1] for each subcarrier.
+// |Phase[t] - Phase[t-1]| is plotted as color intensity.
+// Hot colors (Red/Magenta) indicate rapid phase change.
+// Cool colors (Blue/Black) indicate static phase.
+//
+// [Concepts & Application]
+// The rate of phase change is directly proportional to the relative velocity of objects
+// in the environment (Doppler Shift).
+// This view effectively highlights *motion*. Static objects disappear (black/blue),
+// while moving objects create bright streaks.
+//
+// [Demo]
+// Stand still: The plot should be mostly dark.
+// Wave your hand quickly: You will see bright "hot" streaks appearing, corresponding
+// to the Doppler shift induced by your hand's motion.
+//
 use ratatui::{prelude::*, widgets::*};
 use ratatui::widgets::canvas::{Canvas, Rectangle};
 use crate::App;
