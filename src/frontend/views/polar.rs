@@ -38,7 +38,7 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect, is_focused: bool, id: usize) {
         f.render_widget(block, area);
         return;
     }
-
+ 
     let stats = &app.history[target_index];
 
     // 2. Setup Data Slice (Tunnel Depth)
