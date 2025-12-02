@@ -1,10 +1,13 @@
 use std::io::{self, BufRead, BufReader};
 use std::time::Duration;
+use std::sync::{Arc, Mutex};
 
-mod csi_data;
-use csi_data::CsiData;
+use crate::{App, backend};
 
-fn esp_com() {
+pub use backend::csi_data;
+pub use csi_data::CsiData;
+
+pub fn esp_com(app: Arc<Mutex<App>>) {
     let port_name = "/dev/ttyUSB0";
     let baud_rate = 115200;
 
@@ -31,22 +34,20 @@ fn esp_com() {
                         Err(ref e) if e.kind() == io::ErrorKind::TimedOut => {
                             continue;
                         }
-                        Err(e) => {
-                            eprintln!("Error reading serial port: {:?}", e);
-                            break;
-                        }
+                        Err(e) => {}
                     }
                 }
 
                 match CsiData::parse(&collected_lines) {
-                    Ok(data) => println!("Parsed Data: {:#?}", data),
-                    Err(e) => eprintln!("Parse Error: {}", e),
+                    Ok(data) => {
+                        if let Ok(mut app) = app.lock() {
+                            app.dataloader.push_data_packet(data);
+                        }
+                    }
+                    Err(e) => {}
                 }
             }
         }
-        Err(e) => {
-            eprintln!("Failed to open \"{}\". Error: {}", port_name, e);
-            ::std::process::exit(1);
-        }
+        Err(e) => {}
     }
 }

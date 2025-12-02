@@ -6,12 +6,12 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use ratatui::layout::Rect;
 
-use crate::config_manager;
+use crate::dataloader::Dataloader;
+use crate::{config_manager};
 use crate::frontend::layout_tree::{TilingManager, SplitDirection};
 use crate::frontend::theme::{Theme, ThemeType};
 use crate::frontend::view_state::ViewState;
 use crate::backend::csi_data::CsiData;
-use crate::backend::dataloader;
 
 pub const MAX_HISTORY_SIZE: usize = 10000;
 
@@ -67,6 +67,7 @@ pub struct App {
 
     // Interaction Caches
     pub pane_regions: RefCell<Vec<(usize, Rect)>>,
+    pub dataloader: Dataloader,
     pub splitter_regions: RefCell<Vec<(Vec<usize>, Rect, SplitDirection)>>,
     pub drag_state: Option<DragState>,
 }
@@ -103,6 +104,7 @@ impl App {
             fullscreen_pane_id: None,
             pane_states: HashMap::new(),
             should_quit: false,
+            dataloader: Dataloader::new(),
 
             current_stats: NetworkStats { packet_count: 0, rssi: -90, pps: 0, snr: 0, timestamp: 0, csi: None },
             history: Vec::with_capacity(MAX_HISTORY_SIZE),
@@ -119,10 +121,12 @@ impl App {
     }
 
     pub fn on_tick(&mut self) {
-        let idx = self.current_stats.packet_count;
-        if let Some(csi_packet) = dataloader::get_data_packet(idx) {
+        // FIX: Cast u64 packet_count to usize for the backend call
+        let idx = self.current_stats.packet_count as usize;
+
+        if let Some(csi_packet) = Dataloader::get_data_packet(&mut self.dataloader, idx) {
             let elapsed = self.start_time.elapsed().as_millis() as u64;
-            let mock_pps = (idx % 50) * 12 + 100;
+            let mock_pps = (idx as u64 % 50) * 12 + 100;
 
             let noise_floor = if csi_packet.noise_floor > 127 {
                 csi_packet.noise_floor - 256
@@ -133,7 +137,7 @@ impl App {
             let snr = csi_packet.rssi - noise_floor;
 
             self.current_stats = NetworkStats {
-                packet_count: idx + 1,
+                packet_count: (idx + 1) as u64,
                 rssi: csi_packet.rssi,
                 pps: mock_pps,
                 snr,
