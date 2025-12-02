@@ -1,3 +1,4 @@
+// --- File: src/backend/dataloader.rs ---
 use super::csi_data::CsiData;
 
 pub struct Dataloader {
@@ -12,9 +13,9 @@ impl Dataloader {
     }
 
     pub fn get_data_packet(&mut self, idx: usize) -> Option<CsiData> {
-        if idx >= self.data.len() {
-            self.data.push(None);
-        }
+        // if idx >= self.data.len() {
+        //     self.data.push(None);
+        // }
         self.data.get(idx).cloned().flatten()
     }
 

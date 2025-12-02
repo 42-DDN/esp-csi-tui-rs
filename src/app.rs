@@ -149,6 +149,60 @@ impl App {
                 self.history.remove(0);
             }
             self.history.push(self.current_stats.clone());
+        } else {
+            // No real packet available: insert mock data so UI can still render
+            let elapsed = self.start_time.elapsed().as_millis() as u64;
+            let mock_pps = (idx as u64 % 50) * 12 + 20;
+
+            // Create a reasonable mock CSI packet. Values chosen to resemble
+            // parsed data so downstream consumers behave the same as with real data.
+            let mock_csi = CsiData {
+                mac: "00:11:22:33:44:55".to_string(),
+                rssi: -42,
+                rate: 300,
+                noise_floor: 200, // will be adjusted below (200 -> -56)
+                channel: 36,
+                timestamp: elapsed,
+                sig_len: 128,
+                rx_state: 0,
+                secondary_channel: 0,
+                sgi: 0,
+                ant: 3,
+                ampdu_cnt: 0,
+                sig_mode: 0,
+                mcs: 9,
+                cwb: 1,
+                smoothing: 0,
+                not_sounding: 0,
+                aggregation: 0,
+                stbc: 0,
+                fec_coding: 0,
+                sig_len_extra: 0,
+                data_length: 1024,
+                csi_raw_data: vec![0i32, 12, -8, 7, 3, -2, 1, 0, 4, -1],
+            };
+
+            let noise_floor = if mock_csi.noise_floor > 127 {
+                mock_csi.noise_floor - 256
+            } else {
+                mock_csi.noise_floor
+            };
+
+            let snr = mock_csi.rssi - noise_floor;
+
+            self.current_stats = NetworkStats {
+                packet_count: (idx + 1) as u64,
+                rssi: mock_csi.rssi,
+                pps: mock_pps,
+                snr,
+                timestamp: elapsed,
+                csi: Some(mock_csi),
+            };
+
+            if self.history.len() >= MAX_HISTORY_SIZE {
+                self.history.remove(0);
+            }
+            self.history.push(self.current_stats.clone());
         }
     }
 
