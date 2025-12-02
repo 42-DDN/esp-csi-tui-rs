@@ -4,6 +4,7 @@
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use crate::backend::csi_data::CsiData;
+use crate::backend::doppler::DopplerSpectrogram;
 
 #[cfg(feature = "rerun")]
 use rerun::{RecordingStream, RecordingStreamBuilder};
@@ -58,6 +59,8 @@ pub struct RerunStreamer {
     rrd_record: Option<RecordingStream>,
     #[cfg(feature = "rerun")]
     heatmap: VecDeque<[f32; 64]>,
+    
+    doppler: DopplerSpectrogram,
 
     app_id: String,
 }
@@ -71,6 +74,8 @@ impl RerunStreamer {
             rrd_record: None,
             #[cfg(feature = "rerun")]
             heatmap: VecDeque::with_capacity(500),
+            
+            doppler: DopplerSpectrogram::new(128, 200), // Window=128, History=200
 
             app_id: app_id.to_string(),
         }
@@ -98,6 +103,9 @@ impl RerunStreamer {
     }
 
     pub fn push_csi(&mut self, csi: &CsiFrame) {
+        // Update Doppler Spectrogram
+        self.doppler.push_frame(csi);
+
         #[cfg(feature = "rerun")]
         {
             // Update shared heatmap buffer once
@@ -159,6 +167,9 @@ impl RerunStreamer {
                     "csi/complex_scatter",
                     &Points3D::new(positions).with_colors(colors),
                 );
+
+                // 4. Doppler Spectrogram -> "csi/doppler_spectrogram"
+                self.doppler.to_rerun(rec);
             };
 
             // Log to Live Stream
