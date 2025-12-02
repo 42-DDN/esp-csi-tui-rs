@@ -46,10 +46,21 @@ pub fn esp_com(app: Arc<Mutex<App>>) {
                 match CsiData::parse(&collected_lines) {
                     Ok(data) => {
                         if let Ok(mut app) = app.lock() {
-                            app.dataloader.push_data_packet(data);
+                            app.dataloader.push_data_packet(data.clone());
+                            
+                            // Log to Rerun if enabled
+                            if let Some(ref streamer) = app.rerun_streamer {
+                                if let Ok(mut s) = streamer.lock() {
+                                    #[cfg(feature = "rerun")]
+                                    {
+                                        let frame = crate::rerun_stream::CsiFrame::from(&data);
+                                        s.push_csi(&frame);
+                                    }
+                                }
+                            }
                         }
                     }
-                    Err(e) => {}
+                    Err(_e) => {}
                 }
             }
         }

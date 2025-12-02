@@ -12,6 +12,8 @@ use crate::frontend::layout_tree::TilingManager;
 use crate::frontend::theme::{Theme, ThemeType};
 use crate::frontend::view_state::ViewState;
 use crate::backend::csi_data::CsiData;
+use crate::layout_tree::SplitDirection;
+use crate::rerun_stream::SharedRerunStreamer;
 
 // We store fewer packets because we are storing averages now.
 // 10,000 averages @ 10Hz = 1000 seconds (~16 minutes) of history.
@@ -69,6 +71,9 @@ pub struct App {
     pub dataloader: Dataloader,
     pub splitter_regions: RefCell<Vec<(Vec<usize>, Rect, crate::frontend::layout_tree::SplitDirection, u16, u16)>>,
     pub drag_state: Option<crate::app::DragState>, // Re-using DragState struct definition or define here if moved
+    
+    // Rerun Integration
+    pub rerun_streamer: Option<SharedRerunStreamer>,
 }
 
 // State for resizing operation
@@ -81,7 +86,7 @@ pub struct DragState {
 }
 
 impl App {
-    pub fn new() -> Self {
+    pub fn new(rerun_addr: Option<String>) -> Self {
         let (tiling, theme) = if let Some(tm) = config_manager::load_startup_template() {
             let loaded_theme = if let Some(variant) = tm.theme_variant {
                 Theme::new(variant)
@@ -93,7 +98,7 @@ impl App {
             (TilingManager::new(), Theme::new(ThemeType::Dark))
         };
 
-        Self {
+        let app = Self {
             tiling,
             theme,
             show_help: false,
@@ -124,7 +129,18 @@ impl App {
             pane_regions: RefCell::new(Vec::new()),
             splitter_regions: RefCell::new(Vec::new()),
             drag_state: None,
+            rerun_streamer: Some(crate::rerun_stream::create_shared_streamer()),
+        };
+
+        if let Some(addr) = rerun_addr {
+            if let Some(ref streamer) = app.rerun_streamer {
+                if let Ok(mut s) = streamer.lock() {
+                    s.connect(&addr);
+                }
+            }
         }
+
+        app
     }
 
     pub fn get_pane_state_mut(&mut self, id: usize) -> &mut ViewState {
@@ -178,7 +194,7 @@ impl App {
                     pps: calculated_pps,
                     snr,
                     timestamp: elapsed_ms,
-                    csi: Some(averaged_csi),
+                    csi: Some(averaged_csi.clone()),
                 };
 
                 self.current_stats = new_stat.clone();
@@ -188,6 +204,17 @@ impl App {
                     self.history.remove(0);
                 }
                 self.history.push(new_stat);
+
+                // Log to Rerun if enabled
+                if let Some(ref streamer) = self.rerun_streamer {
+                    if let Ok(mut s) = streamer.lock() {
+                        #[cfg(feature = "rerun")]
+                        {
+                            let frame = crate::rerun_stream::CsiFrame::from(&averaged_csi);
+                            s.push_csi(&frame);
+                        }
+                    }
+                }
             } else {
                 // No data received in this interval
                 // We can either hold the last value or show "0 PPS"

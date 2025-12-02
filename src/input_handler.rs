@@ -51,6 +51,41 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
                 match key.code {
                     KeyCode::Left | KeyCode::Right => { app.tiling.split(Direction::Horizontal); return Ok(true); }
                     KeyCode::Up | KeyCode::Down => { app.tiling.split(Direction::Vertical); return Ok(true); }
+                    KeyCode::Char('r') | KeyCode::Char('R') => {
+                        // Toggle Rerun live streaming
+                        eprintln!("[DEBUG] Shift+R pressed, toggling Rerun streaming");
+                        if let Some(ref streamer) = app.rerun_streamer {
+                            if let Ok(mut s) = streamer.lock() {
+                                if s.is_connected() {
+                                    s.disconnect();
+                                } else {
+                                    s.connect("127.0.0.1:9876");
+                                }
+                            }
+                        }
+                        return Ok(true);
+                    }
+                    KeyCode::Char('l') | KeyCode::Char('L') => {
+                        // Toggle Rerun RRD recording
+                        eprintln!("[DEBUG] Shift+L pressed, toggling Rerun recording");
+                        if let Some(ref streamer) = app.rerun_streamer {
+                            if let Ok(mut s) = streamer.lock() {
+                                if s.is_recording() {
+                                    s.stop_record();
+                                } else {
+                                    let timestamp = std::time::SystemTime::now()
+                                        .duration_since(std::time::UNIX_EPOCH)
+                                        .unwrap()
+                                        .as_secs();
+                                    match s.start_record(&format!("logs/csi_{}.rrd", timestamp)) {
+                                        Ok(_) => eprintln!("[Rerun] ✓ Recording started"),
+                                        Err(e) => eprintln!("[Rerun] ✗ Failed to start recording: {}", e),
+                                    }
+                                }
+                            }
+                        }
+                        return Ok(true);
+                    }
                     _ => return Ok(false),
                 }
             } else {
