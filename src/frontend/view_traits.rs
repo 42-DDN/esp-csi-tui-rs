@@ -21,7 +21,8 @@ impl ViewBehavior for ViewType {
     fn is_spatial(&self) -> bool {
         match self {
             ViewType::Polar |
-            ViewType::Isometric => true,
+            ViewType::Isometric |
+            ViewType::Phase => true,
             _ => false,
         }
     }

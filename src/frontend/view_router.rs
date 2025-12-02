@@ -109,6 +109,7 @@ fn draw_tree(f: &mut Frame, app: &App, node: &LayoutNode, area: Rect, path: Vec<
 fn render_pane(f: &mut Frame, app: &App, area: Rect, id: usize, view: ViewType, is_focused: bool) {
     match view {
         ViewType::Dashboard => stats::draw(f, app, area, is_focused, id),
+        ViewType::Phase => phase::draw(f, app, area, is_focused, id),
         _ => draw_empty(f, app, area, is_focused, &view, id),
     }
 }
