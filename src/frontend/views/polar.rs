@@ -1,5 +1,6 @@
 // --- File: src/frontend/views/polar.rs ---
 // --- Purpose: 3D Cylindrical "Tunnel" View of Amplitude vs Subcarrier History ---
+// conic plot
 
 use ratatui::{prelude::*, widgets::*};
 use ratatui::widgets::canvas::{Canvas, Line as CanvasLine};
@@ -238,7 +239,30 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect, is_focused: bool, id: usize) {
                 let lx_raw = 0.0;
                 let ly_raw = radius_val;
                 let (lx, ly) = project(lx_raw, ly_raw, 0.0);
-                ctx.print(lx, ly, format!("{:.1}", radius_val));
+                ctx.print(lx, ly, format!("{:.1} dB", radius_val));
+            }
+
+            // 4. Draw Angle Spread (Subcarrier Indices)
+            // Draw lines radiating from center to max radius at specific subcarrier intervals
+            let max_radius = max_amp * 1.1; // Extend slightly beyond max amplitude
+            let subcarrier_step = 8;
+            // Assuming 64 subcarriers for standard WiFi CSI
+            let total_subcarriers = 64;
+
+            for s in (0..total_subcarriers).step_by(subcarrier_step) {
+                let theta = (s as f64 / total_subcarriers as f64) * 2.0 * std::f64::consts::PI;
+
+                let x_end = max_radius * theta.cos();
+                let y_end = max_radius * theta.sin();
+
+                let (sx_start, sy_start) = project(0.0, 0.0, 0.0);
+                let (sx_end, sy_end) = project(x_end, y_end, 0.0);
+
+                // Draw faint line
+                ctx.draw(&CanvasLine { x1: sx_start, y1: sy_start, x2: sx_end, y2: sy_end, color: Color::DarkGray });
+
+                // Label at the end
+                ctx.print(sx_end, sy_end, format!("SC{}", s));
             }
 
             // Draw Labels
