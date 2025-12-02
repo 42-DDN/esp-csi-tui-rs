@@ -4,8 +4,9 @@
 #[derive(Clone, Debug)]
 pub struct ViewState {
     // Temporal State
-    pub history_offset: usize, // 0 = Live, >0 = Looking back N frames
-    pub is_paused: bool,
+    // If Some(id), we are locked to that specific packet ID (Paused/Replay).
+    // If None, we are following the Live head.
+    pub anchor_packet_id: Option<u64>,
 
     // Spatial State (3D / Camera)
     pub camera_x: f64,
@@ -16,8 +17,7 @@ pub struct ViewState {
 impl ViewState {
     pub fn new() -> Self {
         Self {
-            history_offset: 0,
-            is_paused: false,
+            anchor_packet_id: None,
             camera_x: 0.0,
             camera_y: 0.0,
             zoom: 1.0,
@@ -25,30 +25,42 @@ impl ViewState {
     }
 
     // --- Temporal Logic ---
-    // Guard against underflow by checking max available history
-    pub fn step_back(&mut self, max_history: usize) {
-        if self.history_offset < max_history {
-            self.history_offset += 1;
-            self.is_paused = true;
+
+    /// Freezes the view at the specified packet ID
+    pub fn pause_at(&mut self, current_live_id: u64) {
+        if self.anchor_packet_id.is_none() {
+            self.anchor_packet_id = Some(current_live_id);
         }
     }
 
-    pub fn step_forward(&mut self) {
-        if self.history_offset > 0 {
-            self.history_offset -= 1;
+    pub fn step_back(&mut self, current_live_id: u64) {
+        // If live, start anchoring at current - 1
+        // If already anchored, decrement anchor
+        let target = self.anchor_packet_id.unwrap_or(current_live_id);
+        if target > 0 {
+            self.anchor_packet_id = Some(target - 1);
         }
-        // If we catch up to 0, we remain paused until user hits 'r'
+    }
+
+    pub fn step_forward(&mut self, current_live_id: u64) {
+        if let Some(target) = self.anchor_packet_id {
+            if target < current_live_id {
+                self.anchor_packet_id = Some(target + 1);
+            } else {
+                // If we catch up to live, we can optionally detach
+                // For now, let's keep it anchored at the latest ID so it feels like "Paused at end"
+                self.anchor_packet_id = Some(current_live_id);
+            }
+        }
     }
 
     pub fn reset_live(&mut self) {
-        self.history_offset = 0;
-        self.is_paused = false;
+        self.anchor_packet_id = None;
     }
 
     // --- Spatial Logic ---
     pub fn move_camera(&mut self, dx: f64, dy: f64) {
         self.camera_x += dx;
         self.camera_y += dy;
-        self.is_paused = true;
     }
 }

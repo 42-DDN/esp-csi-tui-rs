@@ -1,28 +1,31 @@
 // --- File: src/app.rs ---
-// --- Purpose: Holds the central Application State and Logic (formerly in main.rs) ---
+// --- Purpose: Holds the central Application State and Logic ---
 
 use std::time::Instant;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use ratatui::layout::Rect;
 
-// Import internal modules via crate:: since we are in a submodule now
+// Internal Imports
 use crate::config_manager;
 use crate::frontend::layout_tree::TilingManager;
 use crate::frontend::theme::{Theme, ThemeType};
 use crate::frontend::view_state::ViewState;
+use crate::backend::csi_data::CsiData;
+use crate::backend::dataloader;
 
 // Global Constant for History Limit
 pub const MAX_HISTORY_SIZE: usize = 10000;
 
 // Data Point for History
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct NetworkStats {
     pub packet_count: u64,
     pub rssi: i32,
     pub pps: u64,
     pub snr: i32,
     pub timestamp: u64,
+    pub csi: Option<CsiData>,
 }
 
 pub struct App {
@@ -92,7 +95,7 @@ impl App {
             should_quit: false,
 
             // Init Stats
-            current_stats: NetworkStats { packet_count: 0, rssi: -90, pps: 0, snr: 0, timestamp: 0 },
+            current_stats: NetworkStats { packet_count: 0, rssi: -90, pps: 0, snr: 0, timestamp: 0, csi: None },
             history: Vec::with_capacity(MAX_HISTORY_SIZE),
             start_time: Instant::now(),
 
@@ -104,30 +107,42 @@ impl App {
         self.pane_states.entry(id).or_insert_with(ViewState::new)
     }
 
-    // MOCK DATA GENERATOR
-    // TODO: Remove this mock logic when integrating real hardware
+    // MAIN DATA LOOP
     pub fn on_tick(&mut self) {
-        // 1. Generate Mock Data
-        let elapsed = self.start_time.elapsed().as_millis() as u64;
-        let mock_packet_count = self.current_stats.packet_count + 1;
-        let mock_rssi = -30 - (rand::random::<i32>().abs() % 60);
-        let mock_pps = (mock_packet_count % 50) * 12 + 100;
-        let mock_snr = mock_rssi - (-95);
+        // Fetch next packet based on packet_count
+        let idx = self.current_stats.packet_count;
 
-        // 2. Update Current
-        self.current_stats = NetworkStats {
-            packet_count: mock_packet_count,
-            rssi: mock_rssi,
-            pps: mock_pps,
-            snr: mock_snr,
-            timestamp: elapsed,
-        };
+        if let Some(csi_packet) = dataloader::get_data_packet(idx) {
+            let elapsed = self.start_time.elapsed().as_millis() as u64;
 
-        // 3. Push to History (Ring Buffer Logic)
-        if self.history.len() >= MAX_HISTORY_SIZE {
-            self.history.remove(0); // Remove oldest
+            // Calculate derived metrics
+            let mock_pps = (idx % 50) * 12 + 100; // Still mocked until we have real timing
+
+            // FIX: Convert unsigned byte noise floor (e.g. 161) to signed dBm (e.g. -95)
+            // If value > 127, it's likely a signed int8 representation
+            let noise_floor = if csi_packet.noise_floor > 127 {
+                csi_packet.noise_floor - 256
+            } else {
+                csi_packet.noise_floor
+            };
+
+            let snr = csi_packet.rssi - noise_floor;
+
+            self.current_stats = NetworkStats {
+                packet_count: idx + 1,
+                rssi: csi_packet.rssi,
+                pps: mock_pps,
+                snr,
+                timestamp: elapsed,
+                csi: Some(csi_packet),
+            };
+
+            // Push to History (Ring Buffer)
+            if self.history.len() >= MAX_HISTORY_SIZE {
+                self.history.remove(0);
+            }
+            self.history.push(self.current_stats.clone());
         }
-        self.history.push(self.current_stats);
     }
 
     pub fn next_theme(&mut self) {

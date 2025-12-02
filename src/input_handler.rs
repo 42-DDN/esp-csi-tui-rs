@@ -13,7 +13,6 @@ use crate::frontend::view_traits::ViewBehavior;
 pub fn handle_event(app: &mut App) -> io::Result<bool> {
     match event::read()? {
         Event::Key(key) => {
-            // --- PRIORITY 0: Popups ---
             if handle_popups(app, key)? {
                 return Ok(true);
             }
@@ -21,8 +20,7 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
             // --- FULLSCREEN MODE NAVIGATION ---
             if let Some(fs_id) = app.fullscreen_pane_id {
                 let current_view_type = get_view_type_for_pane(app, fs_id);
-                // We need to access history length before borrowing state mutably to avoid conflict
-                let history_len = app.history.len();
+                let current_live_id = app.current_stats.packet_count; // Get Live ID
                 let state = app.get_pane_state_mut(fs_id);
 
                 match key.code {
@@ -30,15 +28,19 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
                     KeyCode::Char(' ') | KeyCode::Esc => { app.fullscreen_pane_id = None; return Ok(true); }
                     KeyCode::Char('r') => { state.reset_live(); return Ok(true); }
 
-                    // TEMPORAL NAVIGATION (Arrows)
+                    // TEMPORAL NAVIGATION
                     KeyCode::Left if current_view_type.is_temporal() => {
-                        state.step_back(history_len);
+                        state.step_back(current_live_id);
                         return Ok(true);
                     }
                     KeyCode::Right if current_view_type.is_temporal() => {
-                        state.step_forward();
+                        state.step_forward(current_live_id);
                         return Ok(true);
                     }
+
+                    // SPACE (Pause Toggle - Optional enhancement)
+                    // If you want space to pause instead of exit fullscreen, change the mapping above.
+                    // For now, Left/Right implicitly pauses.
 
                     // CAMERA CONTROLS
                     KeyCode::Char('w') if current_view_type.is_spatial() => { state.move_camera(0.0, -1.0); return Ok(true); }
@@ -67,7 +69,7 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
                     KeyCode::Delete => { app.tiling.close_focused_pane(); return Ok(true); }
                     KeyCode::Char(' ') => { app.fullscreen_pane_id = Some(app.tiling.focused_pane_id); return Ok(true); }
 
-                    // RESET FOCUSED PANE (New)
+                    // RESET FOCUSED PANE
                     KeyCode::Char('r') => {
                         let id = app.tiling.focused_pane_id;
                         let state = app.get_pane_state_mut(id);
@@ -128,6 +130,7 @@ fn find_view_type_recursive(node: &crate::frontend::layout_tree::LayoutNode, tar
     }
 }
 
+// ... handle_popups remains unchanged ...
 fn handle_popups(app: &mut App, key: crossterm::event::KeyEvent) -> io::Result<bool> {
     if app.show_save_input {
         match key.code {

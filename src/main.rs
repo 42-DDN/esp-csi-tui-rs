@@ -1,7 +1,7 @@
 // --- File: src/main.rs ---
 // --- Purpose: Entry Point. Configures the module tree and runs the main loop. ---
 
-use std::{io, time::Duration};
+use std::{io, time::{Duration, Instant}};
 use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
@@ -10,12 +10,13 @@ use crossterm::{
 use ratatui::prelude::*;
 
 // 1. Declare modules
-pub mod app; // <--- The App struct lives here now
+pub mod app;
 pub mod input_handler;
 pub mod frontend;
 pub mod config_manager;
+pub mod backend;
 
-// 2. Re-exports to maintain "crate::App" access throughout the project
+// 2. Re-exports
 pub use app::{App, NetworkStats};
 
 pub use frontend::layout_tree;
@@ -37,14 +38,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut app = App::new();
 
+    // Loop Timing Control
+    let tick_rate = Duration::from_millis(100); // 10Hz Data Updates (Simulate Hardware)
+    let mut last_tick = Instant::now();
+
     loop {
+        // Always draw (target ~60fps responsive UI)
         terminal.draw(|f| view_router::ui(f, &app))?;
 
+        // Poll for inputs with a short timeout to keep UI responsive
+        // but NOT blocking data updates forever
         if event::poll(Duration::from_millis(16))? {
             let _ = input_handler::handle_event(&mut app)?;
         }
 
-        app.on_tick();
+        // Decouple Data Generation from Input Loop
+        // Only update data if the tick_rate duration has passed
+        if last_tick.elapsed() >= tick_rate {
+            app.on_tick();
+            last_tick = Instant::now();
+        }
 
         if app.should_quit {
             break;
