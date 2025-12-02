@@ -63,6 +63,7 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
                     KeyCode::Delete => { app.tiling.close_focused_pane(); return Ok(true); }
                     KeyCode::Char(' ') => { app.fullscreen_pane_id = Some(app.tiling.focused_pane_id); return Ok(true); }
                     KeyCode::Char('r') => { app.get_pane_state_mut(app.tiling.focused_pane_id).reset_live(); return Ok(true); }
+
                     KeyCode::Char(c) if c.is_digit(10) => {
                         let id = if c == '0' { 10 } else { c.to_digit(10).unwrap() as usize };
                         if app.pane_regions.borrow().iter().any(|(pid, _)| *pid == id) {
