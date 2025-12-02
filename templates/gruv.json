@@ -1,0 +1,68 @@
+{
+  "root": {
+    "Split": {
+      "direction": "Horizontal",
+      "ratio": 50,
+      "children": [
+        {
+          "Pane": {
+            "id": 1,
+            "view": "Dashboard"
+          }
+        },
+        {
+          "Split": {
+            "direction": "Vertical",
+            "ratio": 50,
+            "children": [
+              {
+                "Split": {
+                  "direction": "Vertical",
+                  "ratio": 50,
+                  "children": [
+                    {
+                      "Pane": {
+                        "id": 2,
+                        "view": "Camera"
+                      }
+                    },
+                    {
+                      "Pane": {
+                        "id": 4,
+                        "view": "Isometric"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "Split": {
+                  "direction": "Horizontal",
+                  "ratio": 50,
+                  "children": [
+                    {
+                      "Pane": {
+                        "id": 3,
+                        "view": "Phase"
+                      }
+                    },
+                    {
+                      "Pane": {
+                        "id": 5,
+                        "view": "Isometric"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "focused_pane_id": 4,
+  "next_id": 6,
+  "is_default": false,
+  "theme_variant": "Gruvbox"
+}
