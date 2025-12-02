@@ -60,6 +60,7 @@ pub struct App {
     pub fullscreen_pane_id: Option<usize>,
     pub pane_states: HashMap<usize, ViewState>,
     pub should_quit: bool,
+    pub should_reset_esp: bool,
 
     // Data State
     pub current_stats: NetworkStats,
@@ -123,6 +124,7 @@ impl App {
             fullscreen_pane_id: None,
             pane_states: HashMap::new(),
             should_quit: false,
+            should_reset_esp: false,
 
             dataloader: Dataloader::new(),
             current_stats: NetworkStats {

@@ -29,10 +29,29 @@ pub fn esp_com(app: Arc<Mutex<App>>) {
         .open();
 
     match port {
-        Ok(port) => {
-            let mut reader = BufReader::new(port);
+        Ok(mut port) => {
+            let mut reader = BufReader::new(port.try_clone().expect("Failed to clone port"));
 
             loop {
+                // Check for Reset Command
+                let should_reset = if let Ok(app) = app.lock() {
+                    app.should_reset_esp
+                } else {
+                    false
+                };
+
+                if should_reset {
+                    if let Err(e) = backend::esp_utility::reset_and_start_esp(&mut port) {
+                        eprintln!("Failed to reset ESP: {}", e);
+                    }
+                    if let Ok(mut app) = app.lock() {
+                        app.should_reset_esp = false;
+                    }
+                    // Re-create reader after reset might be needed if the port state changes significantly,
+                    // but usually just flushing is enough.
+                    // However, reset_and_start_esp writes to the port.
+                }
+
                 let mut collected_lines = String::new();
                 let mut lines_read = 0;
                 while lines_read < 24 {

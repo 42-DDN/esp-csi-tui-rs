@@ -328,7 +328,8 @@ fn handle_popups(app: &mut App, key: crossterm::event::KeyEvent) -> io::Result<b
                             1 => { app.show_main_menu = false; app.show_save_input = true; app.input_buffer.clear(); },
                             2 => { app.show_main_menu = false; if let Ok(list) = config_manager::list_templates() { app.available_templates = list; } app.load_selector_index = 0; app.show_load_selector = true; },
                             3 => { app.show_main_menu = false; app.show_export_input = true; app.export_input_buffer.clear(); },
-                            4 => app.show_main_menu = false,
+                            4 => { app.show_main_menu = false; app.should_reset_esp = true; },
+                            5 => app.show_main_menu = false,
                             _ => {}
                         }
                     } else if key.code == KeyCode::Up {
