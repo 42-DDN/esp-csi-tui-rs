@@ -10,9 +10,8 @@ pub use csi_data::CsiData;
 
 pub fn esp_com(app: Arc<Mutex<App>>) {
     // Switch to mock data for now
-    mock_esp_com(app);
+    // mock_esp_com(app);
 
-    /*
     // Real ESP implementation
     let port_name = "/dev/ttyUSB0";
     let baud_rate = 115200;
@@ -56,7 +55,6 @@ pub fn esp_com(app: Arc<Mutex<App>>) {
         }
         Err(e) => {}
     }
-    */
 }
 
 pub fn mock_esp_com(app: Arc<Mutex<App>>) {
