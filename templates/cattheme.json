@@ -77,6 +77,6 @@
   },
   "focused_pane_id": 1,
   "next_id": 7,
-  "is_default": false,
+  "is_default": true,
   "theme_variant": "Catppuccin"
 }
