@@ -41,7 +41,7 @@ impl ViewType {
             ViewType::Isometric => "3D Isometric",
             ViewType::Spectrogram => "Spectrogram",
             ViewType::Phase => "Phase Plot",
-            ViewType::Camera => "Camera Feed",
+            ViewType::Camera => "(NO_CAMERA_STREAM)",
             ViewType::RawScatter => "Multipath Scatter",
         }
     }

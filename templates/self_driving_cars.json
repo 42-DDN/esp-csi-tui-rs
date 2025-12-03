@@ -5,14 +5,8 @@
       "ratio": 50,
       "children": [
         {
-          "Pane": {
-            "id": 1,
-            "view": "Dashboard"
-          }
-        },
-        {
           "Split": {
-            "direction": "Vertical",
+            "direction": "Horizontal",
             "ratio": 50,
             "children": [
               {
@@ -22,17 +16,37 @@
                   "children": [
                     {
                       "Pane": {
-                        "id": 2,
-                        "view": "Camera"
+                        "id": 1,
+                        "view": "Dashboard"
                       }
                     },
                     {
                       "Pane": {
-                        "id": 4,
+                        "id": 2,
                         "view": "Isometric"
                       }
                     }
                   ]
+                }
+              },
+              {
+                "Pane": {
+                  "id": 3,
+                  "view": "RawScatter"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "Split": {
+            "direction": "Vertical",
+            "ratio": 50,
+            "children": [
+              {
+                "Pane": {
+                  "id": 4,
+                  "view": "Polar"
                 }
               },
               {
@@ -42,14 +56,14 @@
                   "children": [
                     {
                       "Pane": {
-                        "id": 3,
-                        "view": "Phase"
+                        "id": 5,
+                        "view": "Spectrogram"
                       }
                     },
                     {
                       "Pane": {
-                        "id": 5,
-                        "view": "Isometric"
+                        "id": 6,
+                        "view": "Phase"
                       }
                     }
                   ]
@@ -61,8 +75,8 @@
       ]
     }
   },
-  "focused_pane_id": 4,
-  "next_id": 6,
-  "is_default": false,
-  "theme_variant": "Gruvbox"
+  "focused_pane_id": 1,
+  "next_id": 7,
+  "is_default": true,
+  "theme_variant": "Nordic"
 }

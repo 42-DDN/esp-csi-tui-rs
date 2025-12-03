@@ -6,13 +6,13 @@ use crate::App;
 use crate::layout_tree::ViewType;
 
 pub const AVAILABLE_VIEWS: [(ViewType, &str); 7] = [
-    (ViewType::Dashboard, "Dashboard Stats"),
-    (ViewType::Polar, "Polar Scatter"),
-    (ViewType::Isometric, "3D Isometric"),
-    (ViewType::Spectrogram, "Spectrogram"),
-    (ViewType::Phase, "Phase Plot"),
+    (ViewType::Dashboard, "Net Stats"),
+    (ViewType::Polar, "Polar Scatter (Amp per SC)"),
+    (ViewType::Isometric, "3D Isometric (Channel Impulse Response)"),
+    (ViewType::Spectrogram, "Spectrogram (Doppler effect) "),
+    (ViewType::Phase, "Phase Plot (Phase per SC)"),
     (ViewType::Camera, "Camera Feed"),
-    (ViewType::RawScatter, "Multipath Scatter"),
+    (ViewType::RawScatter, "Multipath Scatte (I/Q Distribution)"),
 ];
 
 pub fn draw(f: &mut Frame, app: &App, area: Rect) {
