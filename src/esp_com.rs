@@ -115,7 +115,6 @@ fn run_replay(app: Arc<Mutex<App>>, path: String) {
     let packets = match backend::csv_parser::CsvParser::parse_csv(&path) {
         Ok(p) => p,
         Err(_e) => {
-            // Log error or just return
             return;
         }
     };

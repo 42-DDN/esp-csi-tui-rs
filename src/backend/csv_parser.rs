@@ -39,7 +39,10 @@ impl CsvParser {
         let mut data_list = Vec::new();
 
         for result in rdr.deserialize() {
-            let record: CsiDataCsvRow = result?;
+            let record: CsiDataCsvRow = match result {
+                Ok(r) => r,
+                Err(_) => continue,
+            };
             
             // Parse the "[1, 2, 3]" string back into Vec<i32>
             let raw_str = record.csi_raw_data.trim();
@@ -48,9 +51,12 @@ impl CsvParser {
             let csi_raw_data: Vec<i32> = if raw_str.is_empty() {
                 Vec::new()
             } else {
-                raw_str.split(',')
+                match raw_str.split(',')
                     .map(|s| s.trim().parse::<i32>())
-                    .collect::<Result<Vec<i32>, _>>()?
+                    .collect::<Result<Vec<i32>, _>>() {
+                        Ok(v) => v,
+                        Err(_) => continue,
+                    }
             };
 
             let csi_data = CsiData {
