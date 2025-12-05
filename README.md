@@ -7,7 +7,6 @@ A TUI-based visualization tool for ESP32 CSI (Channel State Information) data.
 ![alt text](image-1.png)
 ![alt text](image-2.png)
 ![alt text](image-3.png)
-![alt text](image-4.png)
 ## Table of Contents
 - [Prerequisites](#prerequisites)
 - [Running](#running)
