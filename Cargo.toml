@@ -9,7 +9,7 @@ ratatui = { version = "0.30.2", default-features = false, features = ["crossterm
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
 serialport = "4.8.1"
-rerun = { version = "0.27", optional = true, default-features = false, features = ["sdk"] }
+rerun = { version = "0.30", optional = true, default-features = false, features = ["sdk"] }
 csv = "1.4.0"
 rustfft = "6.4.1"
 # opencv = "0.97.2"
