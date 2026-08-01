@@ -23,7 +23,7 @@ All types of contributions are encouraged and valued. See the [Table of Contents
   - [Improving The Documentation](#improving-the-documentation)
 - [Styleguides](#styleguides)
   - [Commit Messages](#commit-messages)
-- [Join The Project Team](#join-the-project-team)
+- [Governance](#Governance)
 
 
 ## Code of Conduct
@@ -130,9 +130,12 @@ Updating, improving and correcting the documentation
 ### Commit Messages
 
 This project uses [conventional commits](https://www.conventionalcommits.org/) as well as [semantic versioning](https://semver.org/)
-
-
-
+### Rust Code
+This Project uses `rustfmt` to format its code.
+### MD Code
+This project uses the `dprint` code formatter to format `md` documents.
+## Governance
+Check out [GOVERNANCE.md](https://github.com/42-DDN/esp-csi-tui-rs/GOVERNANCE.md) to peek into how decisions are made.
 <!-- omit in toc -->
 #### Attribution
 This guide is based on the [contributing.md](https://contributing.md/generator)!
